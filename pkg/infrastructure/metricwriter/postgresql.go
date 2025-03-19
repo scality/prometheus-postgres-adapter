@@ -94,8 +94,11 @@ type PostgreSQL struct {
 	syncMap      *sync.Map
 
 	parserCount int
+	writerCount int
 
 	postgreSQLClient *database.PostgreSQL
+
+	ErrorChan chan error
 }
 
 func NewPostgreSQL(
@@ -104,22 +107,25 @@ func NewPostgreSQL(
 	messageQueue *messagequeue.Chan,
 	syncMap *sync.Map, // SyncMap is initialized in the caller, to account for existing metrics
 	parserCount int,
+	writerCount int,
 ) (*PostgreSQL, error) {
 	postgreSQL := &PostgreSQL{
 		parserCount:      parserCount,
+		writerCount:      writerCount,
 		postgreSQLClient: client,
 		messageQueue:     messageQueue,
 		syncMap:          syncMap,
+		ErrorChan:        make(chan error),
 	}
 
-	// FIXME Both of below functions could be executed elsewhere.
-	// For now, each writers
+	// Initialize mandatory tables
 	err := postgreSQL.setupPostgreSQLTables(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to setup postgresql tables")
 	}
 
-	err = postgreSQL.RegisterExistingMetrics(ctx)
+	// Recover and register existing metrics
+	err = postgreSQL.registerExistingMetrics(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to register existing metrics")
 	}
@@ -127,7 +133,17 @@ func NewPostgreSQL(
 	return postgreSQL, nil
 }
 
-func (p *PostgreSQL) RegisterExistingMetrics(ctx context.Context) error {
+func (p *PostgreSQL) Run(ctx context.Context) {
+	for _ = range p.parserCount {
+		go p.parser(ctx)
+	}
+
+	for _ = range p.parserCount {
+		go p.saver(ctx)
+	}
+}
+
+func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 	rows, err := p.postgreSQLClient.Query(ctx, postgreSQLSelectMetricsLabelsQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to query existing metrics")
@@ -176,32 +192,28 @@ func (p *PostgreSQL) setupPostgreSQLTables(ctx context.Context) error {
 	return nil
 }
 
-func (p *PostgreSQL) Run(ctx context.Context) {
-	for i := 0; i < p.parserCount; i++ {
-		go p.Parse(ctx)
-	}
-
+func (p *PostgreSQL) saver(ctx context.Context) {
 	ticker := time.NewTicker(postgreSQLTickerPeriod)
 
 	for {
 		select {
 		case <-ctx.Done():
 			ticker.Stop()
+			close(p.ErrorChan)
 
 			return
 		case <-ticker.C:
 			if len(p.valuesRows) > 0 { // There are rows to commit
-				err := p.Save(ctx) // FIXME Implement this
+				err := p.save(ctx)
 				if err != nil {
-					// TODO Handle error with channel, from the main function
-					// This will help handling logs for concurrent writers
+					p.ErrorChan <- errors.Wrap(err, "failed to save rows")
 				}
 			}
 		}
 	}
 }
 
-func (p *PostgreSQL) Save(ctx context.Context) error {
+func (p *PostgreSQL) save(ctx context.Context) error {
 	err := p.postgreSQLClient.WriteRows(ctx, postgreSQLInsertLabelsStatement, p.labelRows)
 	if err != nil {
 		return errors.Wrap(err, "failed to save labels")
@@ -215,7 +227,7 @@ func (p *PostgreSQL) Save(ctx context.Context) error {
 	return nil
 }
 
-func (p *PostgreSQL) Parse(ctx context.Context) {
+func (p *PostgreSQL) parser(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Millisecond)
 
 	for {
@@ -256,7 +268,12 @@ func (p *PostgreSQL) Parse(ctx context.Context) {
 					// FIXME I don't like this piece of code
 					index := strings.Index(metricString, "{")
 					jsonbMap := make(map[string]any)
-					json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
+					err := json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
+					if err != nil {
+						p.ErrorChan <- errors.Wrap(err, "failed to unmarshal json")
+
+						continue
+					}
 
 					// Add this metric to the labels to be written
 					p.labelRows = append(p.labelRows, []any{

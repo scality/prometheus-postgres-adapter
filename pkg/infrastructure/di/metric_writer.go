@@ -6,7 +6,7 @@ import (
 	"prom-adapter/pkg/infrastructure/metricwriter"
 )
 
-func (c *Container) getPostgreSQLMetricWriter() *metricwriter.PostgreSQL {
+func (c *Container) GetPostgreSQLMetricWriter() *metricwriter.PostgreSQL {
 	if c.postgreSQLMetricWriter == nil {
 		postgreSQLMetricWriter, err := metricwriter.NewPostgreSQL(
 			c.baseCtx,
@@ -14,6 +14,7 @@ func (c *Container) getPostgreSQLMetricWriter() *metricwriter.PostgreSQL {
 			c.getChanMessageQueue(),
 			&sync.Map{},
 			c.cfg.MetricParserCount,
+			c.cfg.MetricWriterCount,
 		)
 		if err != nil {
 			c.GetLogger().Fatal().Err(err).Msg("failed to create postgresql metric writer")

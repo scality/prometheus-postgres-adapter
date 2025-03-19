@@ -38,6 +38,18 @@ func main() {
 
 	logger.Info().Msg("Starting prometheus-postgres-adapter")
 
+	metricWriter := container.GetPostgreSQLMetricWriter()
+
+	metricWriter.Run(ctx)
+
+	go func() {
+		for err := range metricWriter.ErrorChan {
+			if err != nil {
+				logger.Error().Err(err).Msg("Error in metric writer")
+			}
+		}
+	}()
+
 	err = container.GetHTTPServer().ListenAndServe()
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start HTTP server")
