@@ -10,26 +10,26 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type PushSamples struct {
+type PushPrometheusSamples struct {
 	logger *zerolog.Logger
 
 	messageQueuePusher service.MessageQueuePusher
 }
 
-func NewPushSamples(
+func NewPushPrometheusSamples(
 	logger *zerolog.Logger,
 	messageQueuePusher service.MessageQueuePusher,
-) *PushSamples {
-	l := logger.With().Str("usecase", "push_samples").Logger()
+) *PushPrometheusSamples {
+	l := logger.With().Str("usecase", "push_prometheus_samples").Logger()
 
-	return &PushSamples{
+	return &PushPrometheusSamples{
 		logger:             &l,
 		messageQueuePusher: messageQueuePusher,
 	}
 }
 
-func (uc *PushSamples) Execute(_ context.Context, samples *domain.Samples) error {
-	uc.logger.Debug().Msg("Executing push samples use case ")
+func (uc *PushPrometheusSamples) Execute(_ context.Context, samples *domain.Samples) error {
+	uc.logger.Debug().Msg("Executing push samples use case")
 
 	err := uc.messageQueuePusher.Push(samples)
 	if err != nil {

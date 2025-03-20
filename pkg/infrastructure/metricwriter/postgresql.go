@@ -72,18 +72,6 @@ const (
 		SELECT metric_name, metric_labels
 		FROM metric_labels
 	`
-
-	postgreSQLInsertLabelsStatement = `
-		INSERT INTO metric_labels
-		    (metric_id, metric_name, metric_name_label, metric_labels)
-		VALUES ($1, $2, $3, $4)
-	`
-
-	postgreSQLInsertValuesStatement = `
-		INSERT INTO metric_values
-		    (metric_id, metric_time, metric_value) 
-		VALUES ($1, $2, $3)
-	`
 )
 
 type PostgreSQL struct {
@@ -134,57 +122,55 @@ func NewPostgreSQL(
 }
 
 func (p *PostgreSQL) Run(ctx context.Context) {
-	for _ = range p.parserCount {
+	for range p.parserCount {
 		go p.parser(ctx)
 	}
 
-	for _ = range p.writerCount {
+	for range p.writerCount {
 		go p.saver(ctx)
 	}
 }
 
 func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
-	rows, err := p.postgreSQLClient.Query(ctx, postgreSQLSelectMetricsLabelsQuery)
+	results, err := p.postgreSQLClient.QueryToMap(ctx, postgreSQLSelectMetricsLabelsQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to query existing metrics")
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var metricName string
-		var metricLabels string
-		if err := rows.Scan(&metricName, &metricLabels); err != nil {
-			return errors.Wrap(err, "failed to scan existing metrics")
+	for _, result := range results {
+		metricName, ok := result["metric_name"].(string)
+		if !ok {
+			return errors.New("failed to cast metric_name to string")
 		}
 
-		p.syncMap.Store(metricName, metricLabels)
+		p.syncMap.Store(metricName, result["metric_labels"])
 	}
 
 	return nil
 }
 
 func (p *PostgreSQL) setupPostgreSQLTables(ctx context.Context) error {
-	_, err := p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsLabelsTableQuery)
+	err := p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsLabelsTableQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to create metric_labels table")
 	}
 
-	_, err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsLabelsIndexQuery)
+	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsLabelsIndexQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to create metric_labels index")
 	}
 
-	_, err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesTableQuery)
+	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesTableQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to create metric_values table")
 	}
 
-	_, err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesIndexQuery)
+	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesIndexQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to create metric_values index")
 	}
 
-	_, err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesTimeIndexQuery)
+	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesTimeIndexQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to create metric_values time index")
 	}
@@ -214,15 +200,42 @@ func (p *PostgreSQL) saver(ctx context.Context) {
 }
 
 func (p *PostgreSQL) save(ctx context.Context) error {
-	err := p.postgreSQLClient.WriteRows(ctx, postgreSQLInsertLabelsStatement, p.labelRows)
+	err := p.postgreSQLClient.CopyRows(
+		ctx,
+		"metric_labels",
+		[]string{
+			"metric_id",
+			"metric_name",
+			"metric_name_label",
+			"metric_labels",
+		},
+		p.labelRows,
+	)
 	if err != nil {
-		return errors.Wrap(err, "failed to save labels")
+		if !strings.Contains(err.Error(), "violates unique constraint") {
+			return errors.Wrap(err, "failed to save labels")
+		}
 	}
 
-	err = p.postgreSQLClient.WriteRows(ctx, postgreSQLInsertValuesStatement, p.valuesRows)
+	// Reset the label rows
+	p.labelRows = nil
+
+	err = p.postgreSQLClient.CopyRows(
+		ctx,
+		"metric_values",
+		[]string{
+			"metric_id",
+			"metric_time",
+			"metric_value",
+		},
+		p.valuesRows,
+	)
 	if err != nil {
 		return errors.Wrap(err, "failed to save values")
 	}
+
+	// Reset the values rows
+	p.valuesRows = nil
 
 	return nil
 }
@@ -289,13 +302,19 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 				parsedSamples = append(parsedSamples, []any{
 					id,
 					// FIXME Timestamp might need to be handled differently as mentionned above
-					sample.Timestamp,
+					toTimestamp(sample.Timestamp.UnixNano() / 1000000),
 					sample.Value,
 				})
 			}
 			p.valuesRows = append(p.valuesRows, parsedSamples...)
 		}
 	}
+}
+
+func toTimestamp(milliseconds int64) time.Time {
+	sec := milliseconds / 1000
+	nsec := (milliseconds - (sec * 1000)) * 1000000
+	return time.Unix(sec, nsec).UTC()
 }
 
 // TODO Might need to rethink this

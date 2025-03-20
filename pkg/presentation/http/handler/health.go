@@ -25,13 +25,15 @@ func NewHealth(
 	}
 }
 
-func (health *Health) Handle() http.Handler {
+func (h *Health) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.logger.Info().Msg("handling request")
+
 		ctx := r.Context()
 
-		err := health.uc.Execute(ctx)
+		err := h.uc.Execute(ctx)
 		if err != nil {
-			health.logger.Error().Err(err).Msg("failed to check database health")
+			h.logger.Error().Err(err).Msg("failed to check database health")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return
@@ -39,6 +41,6 @@ func (health *Health) Handle() http.Handler {
 
 		w.WriteHeader(http.StatusOK)
 
-		health.logger.Info().Msg("database health check passed")
+		h.logger.Info().Msg("database health check passed")
 	})
 }

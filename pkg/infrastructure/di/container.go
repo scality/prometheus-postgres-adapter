@@ -11,7 +11,7 @@ import (
 	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"prometheus-postgres-adapter/pkg/usecase"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
 
@@ -21,8 +21,8 @@ type Container struct {
 	cfg     *config.Environment
 
 	// Low level components
-	httpServer         *http.Server
-	postgreSQLDatabase *sqlx.DB
+	httpServer                  *http.Server
+	postgreSQLDatabaseConnexion *pgxpool.Pool
 
 	// Handlers
 	writeHandler  http.Handler
@@ -36,9 +36,9 @@ type Container struct {
 	sqlQueryBuilder        *querybuilder.SQL
 
 	// Use-cases
-	pushSamplesUseCase  *usecase.PushSamples
-	checkDatabaseHealth *usecase.CheckDatabaseHealth
-	readSamplesUseCase  *usecase.ReadSamples
+	pushPrometheusSamplesUseCase *usecase.PushPrometheusSamples
+	checkDatabaseHealth          *usecase.CheckDatabaseHealth
+	readPrometheusSamplesUseCase *usecase.ReadPrometheusSamples
 }
 
 func NewContainer(ctx context.Context, cfg *config.Environment) *Container {

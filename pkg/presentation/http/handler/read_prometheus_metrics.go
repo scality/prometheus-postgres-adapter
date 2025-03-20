@@ -7,19 +7,19 @@ import (
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rs/zerolog"
-	"github.com/gogo/protobuf/proto"
 )
 
 type ReadPrometheusMetrics struct {
-	uc     *usecase.ReadSamples
+	uc     *usecase.ReadPrometheusSamples
 	logger *zerolog.Logger
 }
 
 func NewReadPrometheusMetrics(
-	uc *usecase.ReadSamples,
+	uc *usecase.ReadPrometheusSamples,
 	logger *zerolog.Logger,
 ) *ReadPrometheusMetrics {
 	l := logger.With().Str("handler", "prometheus_reader").Logger()
@@ -32,6 +32,8 @@ func NewReadPrometheusMetrics(
 
 func (h *ReadPrometheusMetrics) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.logger.Info().Msg("handling request")
+
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "failed to read request body", http.StatusInternalServerError)

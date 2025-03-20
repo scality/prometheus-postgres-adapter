@@ -2,11 +2,11 @@ package usecase
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"prometheus-postgres-adapter/pkg/domain"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
@@ -14,7 +14,7 @@ import (
 )
 
 type (
-	ReadSamples struct {
+	ReadPrometheusSamples struct {
 		logger *zerolog.Logger
 
 		builder SQLQueryBuilder
@@ -26,25 +26,25 @@ type (
 	}
 
 	SQLQuerier interface {
-		Query(context.Context, string, ...any) (*sql.Rows, error)
+		QueryToPGXRows(ctx context.Context, query string, args ...any) (pgx.Rows, error)
 	}
 )
 
-func NewReadSamples(
+func NewReadPrometheusSamples(
 	logger *zerolog.Logger,
 	builder SQLQueryBuilder,
 	querier SQLQuerier,
-) *ReadSamples {
+) *ReadPrometheusSamples {
 	l := logger.With().Str("usecase", "read_samples").Logger()
 
-	return &ReadSamples{
+	return &ReadPrometheusSamples{
 		logger:  &l,
 		builder: builder,
 		querier: querier,
 	}
 }
 
-func (uc *ReadSamples) Execute(
+func (uc *ReadPrometheusSamples) Execute(
 	ctx context.Context,
 	req *domain.ReadRequest,
 ) (*domain.ReadResponse, error) {
@@ -56,7 +56,7 @@ func (uc *ReadSamples) Execute(
 			return nil, errors.Wrap(err, "failed to build SQL query")
 		}
 
-		rows, err := uc.querier.Query(ctx, sqlQuery)
+		rows, err := uc.querier.QueryToPGXRows(ctx, sqlQuery)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to query rows")
 		}

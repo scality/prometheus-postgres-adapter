@@ -9,7 +9,7 @@ import (
 func (c *Container) getWriteHTTPHandler() http.Handler {
 	if c.writeHandler == nil {
 		c.writeHandler = handler.NewPrometheusToPostgreSQLMetricsPusher(
-			c.getPushSamplesUseCase(),
+			c.getPushPrometheusSamplesUseCase(),
 			c.GetLogger(),
 		).Handle()
 	}
@@ -31,7 +31,7 @@ func (c *Container) getHealthHTTPHandler() http.Handler {
 func (c *Container) getReadHTTPHandler() http.Handler {
 	if c.readHandler == nil {
 		c.readHandler = handler.NewReadPrometheusMetrics(
-			c.getReadSamplesUseCase(),
+			c.getReadPrometheusSamplesUseCase(),
 			c.GetLogger(),
 		).Handle()
 	}

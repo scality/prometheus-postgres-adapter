@@ -3,7 +3,7 @@ package di
 import (
 	"prometheus-postgres-adapter/pkg/presentation/database"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 )
 
@@ -17,15 +17,21 @@ func (c *Container) getPostgreSQLClient() *database.PostgreSQL {
 	return c.postgreSQLClient
 }
 
-func (c *Container) getPostgreSQLDatabase() *sqlx.DB {
-	if c.postgreSQLDatabase == nil {
-		db, err := sqlx.Connect("postgres", c.cfg.Database.URL)
+func (c *Container) getPostgreSQLDatabase() *pgxpool.Pool {
+	if c.postgreSQLDatabaseConnexion == nil {
+		pool, err := pgxpool.New(c.baseCtx, c.cfg.Database.URL)
 		if err != nil {
 			c.GetLogger().Fatal().Err(err).Msg("failed to connect to postgres database")
 		}
 
-		c.postgreSQLDatabase = db
+		c.postgreSQLDatabaseConnexion = pool
 	}
 
-	return c.postgreSQLDatabase
+	return c.postgreSQLDatabaseConnexion
 }
+
+//
+// postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]
+// user=longtermmetrics_owner_user password=rqDzDAcEZIhGTFaeGwBr0unbc0gtDfcow8PnzLfZ77gr8Vkv5g0jAaL6rd1Va9Sp host=artesca-postgres.artesca-auth.svc port=5432 database=longtermmetrics
+
+// postgresql://longtermmetrics_owner_user:rqDzDAcEZIhGTFaeGwBr0unbc0gtDfcow8PnzLfZ77gr8Vkv5g0jAaL6rd1Va9Sp@host=artesca-postgres.artesca-auth.svc:5432/longtermmetrics

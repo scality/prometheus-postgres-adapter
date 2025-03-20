@@ -33,7 +33,7 @@ type (
 
 func (l *SampleLabels) Scan(value any) error {
 	if value == nil {
-		l = &SampleLabels{}
+		l = &SampleLabels{} //nolint:ineffassign // Avoid nil pointer dereference
 		return nil
 	}
 

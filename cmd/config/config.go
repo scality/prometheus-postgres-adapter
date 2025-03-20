@@ -21,16 +21,15 @@ type (
 		LoggerLogLevel string `env:"LOGGER_LOG_LEVEL, default=info"`
 
 		HTTP     HTTP       `env:",prefix=HTTP_"`
-		Database PostgreSQL `env:",prefix=DATABASE_"`
+		Database PostgreSQL `env:",prefix=POSTGRESQL_DATABASE_"`
 
 		MetricParserCount int `env:"METRIC_PARSER_COUNT, default=1"`
 		MetricWriterCount int `env:"METRIC_WRITER_COUNT, default=1"`
 	}
 
 	PostgreSQL struct {
-		// FIXME Break this into multiple fields
-		URL      string `env:"URL, default=postgresql://postgres:password@localhost:5432/postgres"`
-		Database string `env:"DATABASE, default=longtermmetrics"`
+		URL      string `env:"URL, default=postgres://localhost:5432"`
+		Name     string `env:"NAME, default=longtermmetrics"`
 		User     string `env:"USER"`
 		Password string `env:"PASSWORD" secret:"true"`
 		Host     string `env:"HOST, default=localhost"`
@@ -38,7 +37,7 @@ type (
 	}
 
 	HTTP struct {
-		Addr string `env:"ADDR, default=:8080"`
+		Addr string `env:"ADDR, default=:9201"`
 	}
 )
 

@@ -17,16 +17,16 @@ import (
 
 type (
 	PrometheusToPostgreSQLMetricsPusher struct {
-		uc     *usecase.PushSamples
+		uc     *usecase.PushPrometheusSamples
 		logger *zerolog.Logger
 	}
 )
 
 func NewPrometheusToPostgreSQLMetricsPusher(
-	uc *usecase.PushSamples,
+	uc *usecase.PushPrometheusSamples,
 	logger *zerolog.Logger,
 ) *PrometheusToPostgreSQLMetricsPusher {
-	l := logger.With().Str("handler", "prometheus_writer").Logger()
+	l := logger.With().Str("handler", "prometheus_to_postgresql_metrics_pusher").Logger()
 
 	return &PrometheusToPostgreSQLMetricsPusher{
 		uc:     uc,
@@ -36,6 +36,8 @@ func NewPrometheusToPostgreSQLMetricsPusher(
 
 func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.logger.Info().Msg("Handling request")
+
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(

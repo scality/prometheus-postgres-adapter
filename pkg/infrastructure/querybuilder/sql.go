@@ -6,9 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
 )
+
+const sqlBaseQueryFormat = `
+		SELECT v.metric_time, l.metric_name, v.metric_value, l.metric_labels
+		FROM metric_values v, metric_labels l 
+		WHERE l.metric_id = v.metric_id 
+		  AND %s %s 
+		ORDER BY v.metric_time
+`
 
 type SQL struct {
 }
@@ -29,7 +38,7 @@ func (s *SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 			switch m.Type {
 			case prompb.LabelMatcher_EQ:
 				if len(escapedValue) == 0 {
-					matchers = append(matchers, fmt.Sprintf("(l.metric_name IS NULL OR name = '')"))
+					matchers = append(matchers, "(l.metric_name IS NULL OR name = '')")
 				} else {
 					matchers = append(matchers, fmt.Sprintf("l.metric_name = '%s'", escapedValue))
 				}
@@ -40,7 +49,7 @@ func (s *SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 			case prompb.LabelMatcher_NRE:
 				matchers = append(matchers, fmt.Sprintf("l.metric_name !~ '%s'", anchorValue(escapedValue)))
 			default:
-				return "", fmt.Errorf("unknown metric name match type %v", m.Type)
+				return "", errors.Errorf("unknown metric name match type %v", m.Type)
 			}
 		} else {
 			switch m.Type {
@@ -79,8 +88,7 @@ func (s *SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 	matchers = append(matchers, fmt.Sprintf("v.metric_time >= '%v'", toTimestamp(prometheusQuery.StartTimestampMs).Format(time.RFC3339)))
 	matchers = append(matchers, fmt.Sprintf("v.metric_time <= '%v'", toTimestamp(prometheusQuery.EndTimestampMs).Format(time.RFC3339)))
 
-	return fmt.Sprintf("SELECT v.metric_time, l.metric_name, v.metric_value, l.metric_labels FROM metric_values v, metric_labels l WHERE l.metric_id = v.metric_id and %s %s ORDER BY v.metric_time",
-		strings.Join(matchers, " AND "), equalsPredicate), nil
+	return fmt.Sprintf(sqlBaseQueryFormat, strings.Join(matchers, " AND "), equalsPredicate), nil
 }
 
 func escapeValue(str string) string {
