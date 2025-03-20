@@ -28,12 +28,11 @@ type (
 	}
 
 	PostgreSQL struct {
-		URL      string `env:"URL, default=postgres://localhost:5432"`
-		Name     string `env:"NAME, default=longtermmetrics"`
+		Name     string `env:"NAME"`
 		User     string `env:"USER"`
 		Password string `env:"PASSWORD" secret:"true"`
-		Host     string `env:"HOST, default=localhost"`
-		Port     int    `env:"PORT, default=5432"`
+		Host     string `env:"HOST"`
+		Port     int    `env:"PORT"`
 	}
 
 	HTTP struct {

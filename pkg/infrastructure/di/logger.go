@@ -10,7 +10,13 @@ import (
 
 func (c *Container) GetLogger() *zerolog.Logger {
 	if c.logger == nil {
-		logger := zerolog.New(os.Stdout).
+		logLevel, err := zerolog.ParseLevel(c.cfg.LoggerLogLevel)
+		if err != nil {
+			logLevel = zerolog.InfoLevel
+		}
+
+		logger := zerolog.New(os.Stderr).
+			Level(logLevel).
 			With().
 			Timestamp().
 			Str("application_name", config.ApplicationName).
