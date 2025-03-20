@@ -1,6 +1,6 @@
 package di
 
-import "prom-adapter/pkg/presentation/messagequeue"
+import "prometheus-postgres-adapter/pkg/presentation/messagequeue"
 
 func (c *Container) getChanMessageQueue() *messagequeue.Chan {
 	if c.chanMessageQueue == nil {

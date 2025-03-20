@@ -36,16 +36,6 @@ func (p *PostgreSQL) Query(ctx context.Context, query string, args ...any) (*sql
 	return rows, nil
 }
 
-//
-// func (p *PostgreSQL) Read(ctx context.Context, query string, args ...any{}) (sql.Result, error) {
-// 	results, err := p.db.ExecContext(ctx, query, args...)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "failed to execute query")
-// 	}
-//
-// 	return results, nil
-// }
-
 func (p *PostgreSQL) WriteRows(ctx context.Context, query string, rows [][]any) error {
 	transaction, err := p.db.BeginTx(ctx, nil)
 	if err != nil {

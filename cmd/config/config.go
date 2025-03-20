@@ -14,22 +14,27 @@ import (
 
 const ApplicationName = "prometheus-postgres-adapter"
 
-const ApplicationVersion = "0.0.1"
+var ApplicationVersion = "dev"
 
 type (
 	Environment struct {
-		LoggerLogLevel string `env:"LOGGER_LOG_LEVEL" default:"info"`
+		LoggerLogLevel string `env:"LOGGER_LOG_LEVEL, default=info"`
 
 		HTTP     HTTP       `env:",prefix=HTTP_"`
-		Database PostregSQL `env:",prefix=DATABASE_"`
+		Database PostgreSQL `env:",prefix=DATABASE_"`
 
-		MetricParserCount int `env:"METRIC_PARSER_COUNT" default:"1"`
-		MetricWriterCount int `env:"METRIC_WRITER_COUNT" default:"1"`
+		MetricParserCount int `env:"METRIC_PARSER_COUNT, default=1"`
+		MetricWriterCount int `env:"METRIC_WRITER_COUNT, default=1"`
 	}
 
-	PostregSQL struct {
+	PostgreSQL struct {
 		// FIXME Break this into multiple fields
-		URL string `env:"POSTGRESQL_URL" default:"postgresql://postgres:password@localhost:5432/postgres"`
+		URL      string `env:"URL, default=postgresql://postgres:password@localhost:5432/postgres"`
+		Database string `env:"DATABASE, default=longtermmetrics"`
+		User     string `env:"USER"`
+		Password string `env:"PASSWORD" secret:"true"`
+		Host     string `env:"HOST, default=localhost"`
+		Port     int    `env:"PORT, default=5432"`
 	}
 
 	HTTP struct {
@@ -44,7 +49,7 @@ func NewEnvironment(ctx context.Context) (*Environment, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer ToString(cfg)
+	defer fmt.Println(ToString(cfg))
 
 	return cfg, nil
 }

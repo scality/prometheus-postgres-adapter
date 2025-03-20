@@ -8,6 +8,7 @@ func (c *Container) GetHTTPServer() *http.Server {
 
 		router.Handle("/write", c.getWriteHTTPHandler())
 		router.Handle("/health", c.getHealthHTTPHandler())
+		router.Handle("/read", c.getReadHTTPHandler())
 
 		c.httpServer = &http.Server{
 			Addr:    c.cfg.HTTP.Addr,

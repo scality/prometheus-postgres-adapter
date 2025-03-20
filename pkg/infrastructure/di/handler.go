@@ -3,7 +3,7 @@ package di
 import (
 	"net/http"
 
-	"prom-adapter/pkg/presentation/http/handler"
+	"prometheus-postgres-adapter/pkg/presentation/http/handler"
 )
 
 func (c *Container) getWriteHTTPHandler() http.Handler {
@@ -26,4 +26,15 @@ func (c *Container) getHealthHTTPHandler() http.Handler {
 	}
 
 	return c.healthHandler
+}
+
+func (c *Container) getReadHTTPHandler() http.Handler {
+	if c.readHandler == nil {
+		c.readHandler = handler.NewReadPrometheusMetrics(
+			c.getReadSamplesUseCase(),
+			c.GetLogger(),
+		).Handle()
+	}
+
+	return c.readHandler
 }

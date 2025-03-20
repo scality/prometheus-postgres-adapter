@@ -1,7 +1,7 @@
 package messagequeue
 
 import (
-	"prom-adapter/pkg/domain"
+	"prometheus-postgres-adapter/pkg/domain"
 )
 
 var queue = make(chan *domain.Samples)

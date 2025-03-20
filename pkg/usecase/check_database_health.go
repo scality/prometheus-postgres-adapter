@@ -21,9 +21,11 @@ func NewCheckDatabaseHealth(
 	healthChecker HealthChecker,
 	logger *zerolog.Logger,
 ) *CheckDatabaseHealth {
+	l := logger.With().Str("usecase", "check_database_health").Logger()
+
 	return &CheckDatabaseHealth{
 		HealthChecker: healthChecker,
-		logger:        logger,
+		logger:        &l,
 	}
 }
 

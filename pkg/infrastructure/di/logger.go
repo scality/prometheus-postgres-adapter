@@ -3,7 +3,7 @@ package di
 import (
 	"os"
 
-	"prom-adapter/cmd/config"
+	"prometheus-postgres-adapter/cmd/config"
 
 	"github.com/rs/zerolog"
 )

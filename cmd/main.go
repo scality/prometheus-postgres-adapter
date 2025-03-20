@@ -5,8 +5,8 @@ import (
 	"log"
 	"runtime"
 
-	"prom-adapter/cmd/config"
-	"prom-adapter/pkg/infrastructure/di"
+	"prometheus-postgres-adapter/cmd/config"
+	"prometheus-postgres-adapter/pkg/infrastructure/di"
 )
 
 func main() {

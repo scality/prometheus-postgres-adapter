@@ -1,6 +1,6 @@
 package di
 
-import "prom-adapter/pkg/usecase"
+import "prometheus-postgres-adapter/pkg/usecase"
 
 func (c *Container) getPushSamplesUseCase() *usecase.PushSamples {
 	if c.pushSamplesUseCase == nil {
@@ -22,4 +22,16 @@ func (c *Container) getCheckDatabaseHealthUseCase() *usecase.CheckDatabaseHealth
 	}
 
 	return c.checkDatabaseHealth
+}
+
+func (c *Container) getReadSamplesUseCase() *usecase.ReadSamples {
+	if c.readSamplesUseCase == nil {
+		c.readSamplesUseCase = usecase.NewReadSamples(
+			c.GetLogger(),
+			c.getSQLQueryBuilder(),
+			c.getPostgreSQLClient(),
+		)
+	}
+
+	return c.readSamplesUseCase
 }

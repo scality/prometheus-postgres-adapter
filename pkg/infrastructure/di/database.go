@@ -1,9 +1,10 @@
 package di
 
 import (
-	"prom-adapter/pkg/presentation/database"
+	"prometheus-postgres-adapter/pkg/presentation/database"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
 func (c *Container) getPostgreSQLClient() *database.PostgreSQL {

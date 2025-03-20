@@ -3,8 +3,8 @@ package usecase
 import (
 	"context"
 
-	"prom-adapter/pkg/domain"
-	"prom-adapter/pkg/service"
+	"prometheus-postgres-adapter/pkg/domain"
+	"prometheus-postgres-adapter/pkg/service"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -20,7 +20,7 @@ func NewPushSamples(
 	logger *zerolog.Logger,
 	messageQueuePusher service.MessageQueuePusher,
 ) *PushSamples {
-	l := logger.With().Str("usecase", "push_metrics").Logger()
+	l := logger.With().Str("usecase", "push_samples").Logger()
 
 	return &PushSamples{
 		logger:             &l,

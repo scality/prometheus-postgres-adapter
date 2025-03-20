@@ -3,7 +3,7 @@ package di
 import (
 	"sync"
 
-	"prom-adapter/pkg/infrastructure/metricwriter"
+	"prometheus-postgres-adapter/pkg/infrastructure/metricwriter"
 )
 
 func (c *Container) GetPostgreSQLMetricWriter() *metricwriter.PostgreSQL {

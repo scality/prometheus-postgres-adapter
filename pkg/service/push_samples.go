@@ -1,6 +1,6 @@
 package service
 
-import "prom-adapter/pkg/domain"
+import "prometheus-postgres-adapter/pkg/domain"
 
 type MessageQueuePusher interface {
 	Push(samples *domain.Samples) error

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"prom-adapter/pkg/presentation/database"
-	"prom-adapter/pkg/presentation/messagequeue"
+	"prometheus-postgres-adapter/pkg/presentation/database"
+	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
@@ -138,7 +138,7 @@ func (p *PostgreSQL) Run(ctx context.Context) {
 		go p.parser(ctx)
 	}
 
-	for _ = range p.parserCount {
+	for _ = range p.writerCount {
 		go p.saver(ctx)
 	}
 }
