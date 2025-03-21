@@ -44,7 +44,7 @@ const (
 			metric_id BIGINT,
 			metric_time TIMESTAMPTZ,
 			metric_value FLOAT8
-		) PARTITION BY RANGE (metric_time)
+		)
 	`
 
 	postgreSQLCreateMetricsValuesIndexQuery = `
@@ -269,6 +269,7 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 					// If we ever need to scale this, we should consider using a different approach,
 					// for example, a map with a mutex
 					nextID := 1
+
 					p.syncMap.Range(func(_, _ any) bool {
 						nextID++
 
@@ -281,6 +282,7 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 					// FIXME I don't like this piece of code
 					index := strings.Index(metricString, "{")
 					jsonbMap := make(map[string]any)
+
 					err := json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
 					if err != nil {
 						p.ErrorChan <- errors.Wrap(err, "failed to unmarshal json")
@@ -306,6 +308,7 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 					sample.Value,
 				})
 			}
+
 			p.valuesRows = append(p.valuesRows, parsedSamples...)
 		}
 	}
@@ -314,17 +317,21 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 func toTimestamp(milliseconds int64) time.Time {
 	sec := milliseconds / 1000
 	nsec := (milliseconds - (sec * 1000)) * 1000000
+
 	return time.Unix(sec, nsec).UTC()
 }
 
-// TODO Might need to rethink this
+// TODO Might need to rethink this.
 func metricString(m model.Metric) string {
 	metricName, hasName := m[model.MetricNameLabel]
 	numLabels := len(m) - 1
+
 	if !hasName {
 		numLabels = len(m)
 	}
+
 	labelStrings := make([]string, 0, numLabels)
+
 	for label, value := range m {
 		if label != model.MetricNameLabel {
 			labelStrings = append(labelStrings, fmt.Sprintf("\"%s\": %q", label, value))
@@ -336,6 +343,7 @@ func metricString(m model.Metric) string {
 		if hasName {
 			return string(metricName)
 		}
+
 		return "{}"
 	default:
 		sort.Strings(labelStrings)
