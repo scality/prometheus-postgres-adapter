@@ -2,7 +2,6 @@ package di
 
 import (
 	"net/http"
-
 	"prometheus-postgres-adapter/pkg/presentation/http/handler"
 )
 

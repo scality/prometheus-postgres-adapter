@@ -3,7 +3,6 @@ package handler
 import (
 	"io"
 	"net/http"
-
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
 
@@ -30,6 +29,7 @@ func NewReadPrometheusMetrics(
 	}
 }
 
+//nolint:gocognit,funlen // Handling requests requires a lot of steps, but is not complex
 func (h *ReadPrometheusMetrics) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.logger.Info().Msg("handling request")
@@ -55,6 +55,7 @@ func (h *ReadPrometheusMetrics) Handle() http.Handler {
 		if err := proto.Unmarshal(reqBuf, &req); err != nil {
 			h.logger.Error().Err(err).Msg("failed to unmarshal request body")
 			http.Error(w, err.Error(), http.StatusBadRequest)
+
 			return
 		}
 

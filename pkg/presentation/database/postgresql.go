@@ -24,7 +24,11 @@ func (p *PostgreSQL) Close() error {
 	return nil
 }
 
-func (p *PostgreSQL) QueryToMap(ctx context.Context, query string, args ...any) ([]map[string]any, error) {
+func (p *PostgreSQL) QueryToMap(
+	ctx context.Context,
+	query string,
+	args ...any,
+) ([]map[string]any, error) {
 	rows, err := p.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
@@ -38,7 +42,12 @@ func (p *PostgreSQL) QueryToMap(ctx context.Context, query string, args ...any) 
 	return results, nil
 }
 
-func (p *PostgreSQL) QueryToPGXRows(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+//nolint:ireturn // FIXME This needs to be refactored, this lib is weird to use
+func (p *PostgreSQL) QueryToPGXRows(
+	ctx context.Context,
+	query string,
+	args ...any,
+) (pgx.Rows, error) {
 	rows, err := p.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
@@ -47,7 +56,12 @@ func (p *PostgreSQL) QueryToPGXRows(ctx context.Context, query string, args ...a
 	return rows, nil
 }
 
-func (p *PostgreSQL) CopyRows(ctx context.Context, tableName string, columnNames []string, rows [][]any) error {
+func (p *PostgreSQL) CopyRows(
+	ctx context.Context,
+	tableName string,
+	columnNames []string,
+	rows [][]any,
+) error {
 	transaction, err := p.db.Begin(ctx)
 	if err != nil {
 		return errors.Wrap(

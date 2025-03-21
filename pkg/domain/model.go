@@ -37,13 +37,14 @@ func (l *SampleLabels) Scan(value any) error {
 		return nil
 	}
 
+	//nolint:revive // This operation is LITTERALY ONLY POSSIBLE IN A SWITCH STATEMENT
 	switch t := value.(type) {
 	case []uint8:
 		m := make(map[string]string)
-		err := json.Unmarshal(t, &m)
 
+		err := json.Unmarshal(t, &m)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to unmarshal labels")
 		}
 
 		*l = SampleLabels{
@@ -63,6 +64,7 @@ func createOrderedKeys(m *map[string]string) []string {
 	for k := range *m {
 		keys = append(keys, k)
 	}
+
 	sort.Strings(keys)
 
 	return keys

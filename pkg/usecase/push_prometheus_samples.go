@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/service"
 

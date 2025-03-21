@@ -4,20 +4,21 @@ import (
 	"prometheus-postgres-adapter/pkg/domain"
 )
 
-var queue = make(chan *domain.Samples)
-
 type Chan struct {
+	queue chan *domain.Samples
 }
 
 func NewChan() *Chan {
-	return &Chan{}
+	return &Chan{
+		queue: make(chan *domain.Samples),
+	}
 }
 
 func (p *Chan) Push(samples *domain.Samples) error {
-	queue <- samples
+	p.queue <- samples
 	return nil
 }
 
 func (p *Chan) Pop() *domain.Samples {
-	return <-queue
+	return <-p.queue
 }

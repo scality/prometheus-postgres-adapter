@@ -1,8 +1,6 @@
 package di
 
 import (
-	"sync"
-
 	"prometheus-postgres-adapter/pkg/infrastructure/metricwriter"
 )
 
@@ -12,7 +10,6 @@ func (c *Container) GetPostgreSQLMetricWriter() *metricwriter.PostgreSQL {
 			c.baseCtx,
 			c.getPostgreSQLClient(),
 			c.getChanMessageQueue(),
-			&sync.Map{},
 			c.cfg.MetricParserCount,
 			c.cfg.MetricWriterCount,
 		)

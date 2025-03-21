@@ -9,11 +9,13 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/sethvargo/go-envconfig"
 )
 
 const ApplicationName = "prometheus-postgres-adapter"
 
+//nolint:gochecknoglobals // This global will be overwritten at build time
 var ApplicationVersion = "dev"
 
 type (
@@ -45,7 +47,7 @@ func NewEnvironment(ctx context.Context) (*Environment, error) {
 
 	err := envconfig.Process(ctx, cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to process environment variables")
 	}
 	defer fmt.Println(ToString(cfg))
 

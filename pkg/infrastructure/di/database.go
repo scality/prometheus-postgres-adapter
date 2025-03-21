@@ -2,11 +2,10 @@ package di
 
 import (
 	"fmt"
-
 	"prometheus-postgres-adapter/pkg/presentation/database"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
 const postgresConnexionString = "postgresql://%s:%s@%s:%d/%s"
@@ -42,9 +41,3 @@ func (c *Container) getPostgreSQLDatabase() *pgxpool.Pool {
 
 	return c.postgreSQLDatabaseConnexion
 }
-
-//
-// postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]
-// user=longtermmetrics_owner_user password=rqDzDAcEZIhGTFaeGwBr0unbc0gtDfcow8PnzLfZ77gr8Vkv5g0jAaL6rd1Va9Sp host=artesca-postgres.artesca-auth.svc port=5432 database=longtermmetrics
-
-// postgresql://longtermmetrics_owner_user:rqDzDAcEZIhGTFaeGwBr0unbc0gtDfcow8PnzLfZ77gr8Vkv5g0jAaL6rd1Va9Sp@host=artesca-postgres.artesca-auth.svc:5432/longtermmetrics

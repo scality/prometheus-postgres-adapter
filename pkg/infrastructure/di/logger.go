@@ -2,7 +2,6 @@ package di
 
 import (
 	"os"
-
 	"prometheus-postgres-adapter/cmd/config"
 
 	"github.com/rs/zerolog"

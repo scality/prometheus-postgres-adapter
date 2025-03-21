@@ -3,7 +3,6 @@ package di
 import (
 	"context"
 	"net/http"
-
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/metricwriter"
 	"prometheus-postgres-adapter/pkg/infrastructure/querybuilder"
@@ -16,7 +15,7 @@ import (
 )
 
 type Container struct {
-	baseCtx context.Context
+	baseCtx context.Context //nolint:containedctx // This context is important to for the DI
 	logger  *zerolog.Logger
 	cfg     *config.Environment
 

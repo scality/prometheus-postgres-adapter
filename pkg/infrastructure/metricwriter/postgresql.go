@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"prometheus-postgres-adapter/pkg/presentation/database"
+	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	"prometheus-postgres-adapter/pkg/presentation/database"
-	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
@@ -74,26 +73,33 @@ const (
 	`
 )
 
-type PostgreSQL struct {
-	labelRows  [][]any
-	valuesRows [][]any
+type (
+	PostgreSQL struct {
+		labelRows  [][]any
+		valuesRows [][]any
 
-	messageQueue *messagequeue.Chan
-	syncMap      *sync.Map
+		messageQueue *messagequeue.Chan
+		syncMap      *sync.Map
 
-	parserCount int
-	writerCount int
+		parserCount int
+		writerCount int
 
-	postgreSQLClient *database.PostgreSQL
+		postgreSQLClient *database.PostgreSQL
 
-	ErrorChan chan error
-}
+		ErrorChan chan ConcurrentError
+	}
 
+	ConcurrentError struct {
+		Err       error
+		Component string
+	}
+)
+
+//nolint:revive // No choice but to use that many parameters
 func NewPostgreSQL(
 	ctx context.Context,
 	client *database.PostgreSQL,
 	messageQueue *messagequeue.Chan,
-	syncMap *sync.Map, // SyncMap is initialized in the caller, to account for existing metrics
 	parserCount int,
 	writerCount int,
 ) (*PostgreSQL, error) {
@@ -101,9 +107,9 @@ func NewPostgreSQL(
 		parserCount:      parserCount,
 		writerCount:      writerCount,
 		postgreSQLClient: client,
+		syncMap:          &sync.Map{},
 		messageQueue:     messageQueue,
-		syncMap:          syncMap,
-		ErrorChan:        make(chan error),
+		ErrorChan:        make(chan ConcurrentError),
 	}
 
 	// Initialize mandatory tables
@@ -183,16 +189,19 @@ func (p *PostgreSQL) saver(ctx context.Context) {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-ctx.Done(): // Exit routine
 			ticker.Stop()
-			close(p.ErrorChan)
+			close(p.ErrorChan) // Close the channel on top of the hierarchy (Writer owns Parser)
 
 			return
 		case <-ticker.C:
 			if len(p.valuesRows) > 0 { // There are rows to commit
 				err := p.save(ctx)
 				if err != nil {
-					p.ErrorChan <- errors.Wrap(err, "failed to save rows")
+					p.ErrorChan <- ConcurrentError{
+						Err:       errors.Wrap(err, "failed to save rows"),
+						Component: "Writer",
+					}
 				}
 			}
 		}
@@ -211,10 +220,14 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 		},
 		p.labelRows,
 	)
-	if err != nil {
-		if !strings.Contains(err.Error(), "violates unique constraint") {
-			return errors.Wrap(err, "failed to save labels")
-		}
+	// TODO For reviewers, we could defer the reset of the label/values rows
+	// 	to account for the case where the save fails
+	// 	The error checking below could be removed if we do that
+
+	// Ignore unique constraint violation errors
+	// That will happen if the metric already exists at application startup
+	if err != nil && !strings.Contains(err.Error(), "violates unique constraint") {
+		return errors.Wrap(err, "failed to save labels")
 	}
 
 	// Reset the label rows
@@ -235,17 +248,18 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 	}
 
 	// Reset the values rows
-	p.valuesRows = nil
+	p.valuesRows = nil // TODO For reviewers, same here
 
 	return nil
 }
 
+//nolint:gocognit,funlen // Splitting this function would make it even more complex
 func (p *PostgreSQL) parser(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(postgreSQLTickerPeriod)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-ctx.Done(): // Exit routine
 			ticker.Stop()
 
 			return
@@ -285,7 +299,10 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 
 					err := json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
 					if err != nil {
-						p.ErrorChan <- errors.Wrap(err, "failed to unmarshal json")
+						p.ErrorChan <- ConcurrentError{
+							Err:       errors.Wrap(err, "failed to unmarshal json"),
+							Component: "Parser",
+						}
 
 						continue
 					}
@@ -301,24 +318,29 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 					id = nextID
 				}
 
+				// Add this sample to the values to be written
 				parsedSamples = append(parsedSamples, []any{
 					id,
-					// FIXME Timestamp might need to be handled differently as mentionned above
-					toTimestamp(sample.Timestamp.UnixNano() / 1000000),
+					toTimestamp(sample.Timestamp.UnixNano() / 1000000), //nolint:mnd // Pouet
 					sample.Value,
 				})
 			}
 
+			// Add the parsed samples to the values rows
+			// This is done outside the loop to push values by batch
+			// TODO For reviewers, we could remove this batch and just stream everything
+			// 	but it might generate weird metrics insert depending on the order of the messages
 			p.valuesRows = append(p.valuesRows, parsedSamples...)
 		}
 	}
 }
 
+//nolint:mnd // Constants would reduce readability
 func toTimestamp(milliseconds int64) time.Time {
 	sec := milliseconds / 1000
-	nsec := (milliseconds - (sec * 1000)) * 1000000
+	nanoSec := (milliseconds - (sec * 1000)) * 1000000
 
-	return time.Unix(sec, nsec).UTC()
+	return time.Unix(sec, nanoSec).UTC()
 }
 
 // TODO Might need to rethink this.

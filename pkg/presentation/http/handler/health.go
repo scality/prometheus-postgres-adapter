@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-
 	"prometheus-postgres-adapter/pkg/usecase"
 
 	"github.com/rs/zerolog"

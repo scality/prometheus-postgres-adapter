@@ -1,6 +1,9 @@
 package di
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 func (c *Container) GetHTTPServer() *http.Server {
 	if c.httpServer == nil {
@@ -11,8 +14,9 @@ func (c *Container) GetHTTPServer() *http.Server {
 		router.Handle("/read", c.getReadHTTPHandler())
 
 		c.httpServer = &http.Server{
-			Addr:    c.cfg.HTTP.Addr,
-			Handler: router,
+			Addr:              c.cfg.HTTP.Addr,
+			Handler:           router,
+			ReadHeaderTimeout: time.Second,
 		}
 	}
 

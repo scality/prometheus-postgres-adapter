@@ -3,7 +3,6 @@ package handler
 import (
 	"io"
 	"net/http"
-
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
 
@@ -59,6 +58,7 @@ func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 		}
 
 		var req prompb.WriteRequest
+
 		err = proto.Unmarshal(reqBuf, &req)
 		if err != nil {
 			h.logger.Error().Err(err).Msg("failed to unmarshal request body")

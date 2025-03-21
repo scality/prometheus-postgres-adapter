@@ -2,9 +2,8 @@ package usecase
 
 import (
 	"context"
-	"time"
-
 	"prometheus-postgres-adapter/pkg/domain"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
@@ -44,6 +43,7 @@ func NewReadPrometheusSamples(
 	}
 }
 
+//nolint:gocognit,funlen // FIXME Need to be refactored
 func (uc *ReadPrometheusSamples) Execute(
 	ctx context.Context,
 	req *domain.ReadRequest,
@@ -95,12 +95,12 @@ func (uc *ReadPrometheusSamples) Execute(
 
 				labelsToSeries[key] = &prompb.TimeSeries{
 					Labels:  labelPairs,
-					Samples: make([]prompb.Sample, 0, 100),
+					Samples: make([]prompb.Sample, 0),
 				}
 			}
 
 			timeserie.Samples = append(timeserie.Samples, prompb.Sample{
-				Timestamp: t.UnixNano() / 1000000,
+				Timestamp: t.UnixNano() / 1000000, //nolint:mnd // Convert to milliseconds
 				Value:     value,
 			})
 		}

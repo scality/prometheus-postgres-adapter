@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 	"log"
-	"runtime"
-
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/di"
+	"runtime"
 )
 
 func main() {
@@ -38,18 +37,27 @@ func main() {
 
 	logger.Info().Msg("Starting prometheus-postgres-adapter")
 
+	// Initialize the parsing / writing components
 	metricWriter := container.GetPostgreSQLMetricWriter()
 
+	// Run the parsing / writing goroutines
 	metricWriter.Run(ctx)
 
+	// Run the error logging goroutine
+	// This goroutine will log any error that occurs in any of the
+	// parsing / writing goroutines
 	go func() {
-		for err := range metricWriter.ErrorChan {
-			if err != nil {
-				logger.Error().Err(err).Msg("Error in metric writer")
+		for concurrentError := range metricWriter.ErrorChan {
+			if concurrentError.Err != nil {
+				logger.Error().
+					Err(err).
+					Str("component", concurrentError.Component).
+					Msg("Error in metric writer")
 			}
 		}
 	}()
 
+	// Initialize and run the HTTP server
 	err = container.GetHTTPServer().ListenAndServe()
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start HTTP server")
