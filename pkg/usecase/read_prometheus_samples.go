@@ -3,9 +3,7 @@ package usecase
 import (
 	"context"
 	"prometheus-postgres-adapter/pkg/domain"
-	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
@@ -25,7 +23,11 @@ type (
 	}
 
 	SQLQuerier interface {
-		QueryToPGXRows(ctx context.Context, query string, args ...any) (pgx.Rows, error)
+		QueryDatabaseSamples(
+			ctx context.Context,
+			query string,
+			args ...any,
+		) ([]*domain.SamplesReadFromDatabase, error)
 	}
 )
 
@@ -43,7 +45,7 @@ func NewReadPrometheusSamples(
 	}
 }
 
-//nolint:gocognit,funlen // FIXME Need to be refactored
+//nolint:gocognit,funlen // The sample transformation part takes a lot of lines but is quite simple
 func (uc *ReadPrometheusSamples) Execute(
 	ctx context.Context,
 	req *domain.ReadRequest,
@@ -51,61 +53,61 @@ func (uc *ReadPrometheusSamples) Execute(
 	labelsToSeries := map[string]*prompb.TimeSeries{}
 
 	for _, query := range req.R.Queries {
+		// Build the SQL query according to the Prometheus query
 		sqlQuery, err := uc.builder.BuildSQLQuery(query)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to build SQL query")
 		}
 
-		rows, err := uc.querier.QueryToPGXRows(ctx, sqlQuery)
+		// Query the database
+		samples, err := uc.querier.QueryDatabaseSamples(ctx, sqlQuery)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to query rows")
 		}
 
-		for rows.Next() {
-			var (
-				value  float64
-				name   string
-				labels domain.SampleLabels
-				t      time.Time
-			)
+		for _, sample := range samples {
+			// Convert the labels to a string key
+			key := sample.Labels.Key(sample.Name)
 
-			err := rows.Scan(&t, &name, &value, &labels)
-			if err != nil {
-				rows.Close()
-
-				return nil, errors.Wrap(err, "failed to scan rows")
-			}
-
-			key := labels.Key(name)
-
+			// Check if the key already exists
 			timeserie, ok := labelsToSeries[key]
 			if !ok {
-				labelPairs := make([]prompb.Label, 0, len(labels.OrderedKeys)+1)
+				labelPairs := make([]prompb.Label, 0, len(sample.Labels.OrderedKeys)+1)
+
+				// Add the metric name label
 				labelPairs = append(labelPairs, prompb.Label{
 					Name:  model.MetricNameLabel,
-					Value: name,
+					Value: sample.Name,
 				})
 
-				for _, k := range labels.OrderedKeys {
+				// Add the other labels
+				for _, k := range sample.Labels.OrderedKeys {
 					labelPairs = append(labelPairs, prompb.Label{
 						Name:  k,
-						Value: labels.Map[k],
+						Value: sample.Labels.Map[k],
 					})
 				}
 
+				// Create a new timeserie for the key
 				labelsToSeries[key] = &prompb.TimeSeries{
 					Labels:  labelPairs,
 					Samples: make([]prompb.Sample, 0),
 				}
 			}
 
+			if timeserie == nil {
+				timeserie = &prompb.TimeSeries{}
+			}
+
+			// Append the sample to the timeserie
 			timeserie.Samples = append(timeserie.Samples, prompb.Sample{
-				Timestamp: t.UnixNano() / 1000000, //nolint:mnd // Convert to milliseconds
-				Value:     value,
+				Timestamp: sample.Timestamp.UnixNano() / 1000000, //nolint:mnd // Convert to milliseconds
+				Value:     sample.Value,
 			})
 		}
 	}
 
+	// Create the response
 	resp := prompb.ReadResponse{
 		Results: []*prompb.QueryResult{
 			{
@@ -113,6 +115,8 @@ func (uc *ReadPrometheusSamples) Execute(
 			},
 		},
 	}
+
+	// Fill it with the timeseries
 	for _, ts := range labelsToSeries {
 		resp.Results[0].Timeseries = append(resp.Results[0].Timeseries, ts)
 	}

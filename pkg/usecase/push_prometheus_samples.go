@@ -3,21 +3,26 @@ package usecase
 import (
 	"context"
 	"prometheus-postgres-adapter/pkg/domain"
-	"prometheus-postgres-adapter/pkg/service"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
-type PushPrometheusSamples struct {
-	logger *zerolog.Logger
+type (
+	PushPrometheusSamples struct {
+		logger *zerolog.Logger
 
-	messageQueuePusher service.MessageQueuePusher
-}
+		messageQueuePusher messageQueuePusher
+	}
+
+	messageQueuePusher interface {
+		Push(samples *domain.Samples) error
+	}
+)
 
 func NewPushPrometheusSamples(
 	logger *zerolog.Logger,
-	messageQueuePusher service.MessageQueuePusher,
+	messageQueuePusher messageQueuePusher,
 ) *PushPrometheusSamples {
 	l := logger.With().Str("usecase", "push_prometheus_samples").Logger()
 

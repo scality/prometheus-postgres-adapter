@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
@@ -28,6 +29,13 @@ type (
 		JSON        []byte
 		Map         map[string]string
 		OrderedKeys []string
+	}
+
+	SamplesReadFromDatabase struct {
+		Timestamp time.Time
+		Value     float64
+		Name      string
+		Labels    SampleLabels
 	}
 )
 

@@ -2,17 +2,28 @@ package database
 
 import (
 	"context"
+	"prometheus-postgres-adapter/pkg/domain"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
 )
 
-type PostgreSQL struct {
-	db *pgxpool.Pool
-}
+type (
+	PostgreSQL struct {
+		db database
+	}
 
-func NewPostgreSQL(db *pgxpool.Pool) *PostgreSQL {
+	database interface {
+		Close()
+		Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+		Begin(ctx context.Context) (pgx.Tx, error)
+		Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+		Ping(ctx context.Context) error
+	}
+)
+
+func NewPostgreSQL(db database) *PostgreSQL {
 	return &PostgreSQL{
 		db: db,
 	}
@@ -42,18 +53,22 @@ func (p *PostgreSQL) QueryToMap(
 	return results, nil
 }
 
-//nolint:ireturn // FIXME This needs to be refactored, this lib is weird to use
-func (p *PostgreSQL) QueryToPGXRows(
+func (p *PostgreSQL) QueryDatabaseSamples(
 	ctx context.Context,
 	query string,
 	args ...any,
-) (pgx.Rows, error) {
+) ([]*domain.SamplesReadFromDatabase, error) {
 	rows, err := p.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
 	}
 
-	return rows, nil
+	samples, err := pgx.CollectRows(rows, pgx.RowToStructByPos[*domain.SamplesReadFromDatabase])
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to collect rows")
+	}
+
+	return samples, nil
 }
 
 func (p *PostgreSQL) CopyRows(

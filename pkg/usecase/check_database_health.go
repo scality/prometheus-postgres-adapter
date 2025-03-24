@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -33,6 +34,8 @@ func (c *CheckDatabaseHealth) Execute(ctx context.Context) error {
 	err := c.HealthChecker.CheckHealth(ctx)
 	if err != nil {
 		c.logger.Error().Err(err).Msg("database health check failed")
+
+		return errors.Wrap(err, "database health check failed")
 	}
 
 	return nil
