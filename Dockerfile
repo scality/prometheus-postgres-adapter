@@ -1,13 +1,13 @@
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine3.21 AS builder
+FROM --platform=$BUILDPLATFORM $BUILDER_IMAGE AS builder
 
 ARG BUILDPLATFORM
+ARG BUILDER_IMAGE
+ARG RUNNER_IMAGE_TAG
 ARG TARGETARCH
 ARG TARGETOS
-ARG APP_VERSION
+ARG APPLICATION_VERSION
 
-WORKDIR /app
-
-RUN apk add --no-cache git
+WORKDIR /go/src/app
 
 COPY go.mod .
 COPY go.sum .
@@ -16,10 +16,10 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w -X prometheus-postgres-adapter/cmd/config.ApplicationVersion=${APP_VERSION}" -o prometheus-postgres-adapter ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w -X prometheus-postgres-adapter/cmd/config.ApplicationVersion=${APPLICATION_VERSION}" -o prometheus-postgres-adapter ./cmd/main.go
 
-FROM alpine:3.21
+FROM $RUNNER_IMAGE_TAG AS runner
 
-COPY --from=builder /app/prometheus-postgres-adapter /bin/prometheus-postgres-adapter
+COPY --from=builder /go/src/app/prometheus-postgres-adapter /bin/prometheus-postgres-adapter
 
 ENTRYPOINT ["/bin/prometheus-postgres-adapter"]
