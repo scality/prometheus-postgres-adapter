@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"prometheus-postgres-adapter/pkg/presentation/database"
-	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"prometheus-postgres-adapter/pkg/presentation/database"
+	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
@@ -220,18 +221,15 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 		},
 		p.labelRows,
 	)
-	// TODO For reviewers, we could defer the reset of the label/values rows
-	// 	to account for the case where the save fails
-	// 	The error checking below could be removed if we do that
 
-	// Ignore unique constraint violation errors
-	// That will happen if the metric already exists at application startup
-	if err != nil && !strings.Contains(err.Error(), "violates unique constraint") {
+	defer func() {
+		// Reset the label rows
+		p.labelRows = nil
+	}()
+
+	if err != nil {
 		return errors.Wrap(err, "failed to save labels")
 	}
-
-	// Reset the label rows
-	p.labelRows = nil
 
 	err = p.postgreSQLClient.CopyRows(
 		ctx,
@@ -243,12 +241,15 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 		},
 		p.valuesRows,
 	)
+
+	defer func() {
+		// Reset the values rows
+		p.valuesRows = nil
+	}()
+
 	if err != nil {
 		return errors.Wrap(err, "failed to save values")
 	}
-
-	// Reset the values rows
-	p.valuesRows = nil // TODO For reviewers, same here
 
 	return nil
 }
@@ -272,8 +273,8 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 			parsedSamples := make([][]any, 0, len(samples.S))
 
 			for _, sample := range samples.S {
-				metricString := metricString(sample.Metric)
-				// TODO Seems like it requires timestamp handling here, TBC
+				// Convert the metric to a string representation
+				metricString := transformToMetricString(sample.Metric)
 
 				// Get the metric ID from the sync map
 				id, ok := p.syncMap.Load(metricString)
@@ -293,7 +294,6 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 					// Store the metric ID in the sync map
 					p.syncMap.Store(metricString, nextID)
 
-					// FIXME I don't like this piece of code
 					index := strings.Index(metricString, "{")
 					jsonbMap := make(map[string]any)
 
@@ -328,8 +328,6 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 
 			// Add the parsed samples to the values rows
 			// This is done outside the loop to push values by batch
-			// TODO For reviewers, we could remove this batch and just stream everything
-			// 	but it might generate weird metrics insert depending on the order of the messages
 			p.valuesRows = append(p.valuesRows, parsedSamples...)
 		}
 	}
@@ -343,8 +341,11 @@ func toTimestamp(milliseconds int64) time.Time {
 	return time.Unix(sec, nanoSec).UTC()
 }
 
-// TODO Might need to rethink this.
-func metricString(m model.Metric) string {
+// transformToMetricString transforms a metric to a string representation.
+// It is used to create a unique key for the metric in the sync map.
+// This is an example of an output:
+// net_storage_mb{"instance": "prometheus-operator-prometheus.metalk8s-monitoring.svc:9090", "job": "federate-prometheus", "long_term": "true", "prometheus": "metalk8s-monitoring/prometheus-operator-prometheus", "prometheus_replica": "prometheus-prometheus-operator-prometheus-0"} //nolint:funlen // Pouet
+func transformToMetricString(m model.Metric) string {
 	metricName, hasName := m[model.MetricNameLabel]
 	numLabels := len(m) - 1
 

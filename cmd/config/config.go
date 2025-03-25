@@ -30,6 +30,7 @@ type (
 	}
 
 	PostgreSQL struct {
+		SSLMode  string `env:"SSL_MODE"`
 		Name     string `env:"NAME"`
 		User     string `env:"USER"`
 		Password string `env:"PASSWORD" secret:"true"`

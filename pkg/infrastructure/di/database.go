@@ -2,6 +2,7 @@ package di
 
 import (
 	"fmt"
+
 	"prometheus-postgres-adapter/pkg/presentation/database"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,6 +31,10 @@ func (c *Container) getPostgreSQLDatabase() *pgxpool.Pool {
 			c.cfg.Database.Port,
 			c.cfg.Database.Name,
 		)
+
+		if c.cfg.Database.SSLMode != "" {
+			connectionString += fmt.Sprintf("?sslmode=%s", c.cfg.Database.SSLMode)
+		}
 
 		pool, err := pgxpool.New(c.baseCtx, connectionString)
 		if err != nil {

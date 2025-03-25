@@ -45,26 +45,25 @@ func (l *SampleLabels) Scan(value any) error {
 		return nil
 	}
 
-	//nolint:revive // This operation is LITTERALY ONLY POSSIBLE IN A SWITCH STATEMENT
-	switch t := value.(type) {
-	case []uint8:
-		m := make(map[string]string)
-
-		err := json.Unmarshal(t, &m)
-		if err != nil {
-			return errors.Wrap(err, "failed to unmarshal labels")
-		}
-
-		*l = SampleLabels{
-			JSON:        t,
-			Map:         m,
-			OrderedKeys: createOrderedKeys(&m),
-		}
-
-		return nil
+	v, ok := value.([]uint8)
+	if !ok {
+		return errors.Errorf("failed to scan labels: %s", reflect.TypeOf(value))
 	}
 
-	return errors.Errorf("failed to scan labels: %s", reflect.TypeOf(value))
+	m := make(map[string]string)
+
+	err := json.Unmarshal(v, &m)
+	if err != nil {
+		return errors.Wrap(err, "failed to unmarshal labels")
+	}
+
+	*l = SampleLabels{
+		JSON:        v,
+		Map:         m,
+		OrderedKeys: createOrderedKeys(&m),
+	}
+
+	return nil
 }
 
 func createOrderedKeys(m *map[string]string) []string {
