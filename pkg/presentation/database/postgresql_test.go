@@ -1,4 +1,4 @@
-//nolint:err113 // I think err113 is bugged in v1.64.8
+//nolint:err113,ireturn // I think err113 is bugged in v1.64.8
 package database_test
 
 import (

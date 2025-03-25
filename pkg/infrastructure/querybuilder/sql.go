@@ -132,7 +132,7 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 }
 
 func escapeValue(str string) string {
-	return strings.Replace(str, `'`, `''`, -1)
+	return strings.ReplaceAll(str, `'`, `''`)
 }
 
 func anchorValue(str string) string {
