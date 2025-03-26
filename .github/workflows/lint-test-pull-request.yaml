@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   golangci:
-    name: lint
+    name: Run Go Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
