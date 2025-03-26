@@ -60,12 +60,12 @@ The adapter can be configured using environment variables:
 #### Database Connection
 
 ````bash
-POSTGRES_HOST=localhost           # Database host
-POSTGRES_PORT=5432                # Database port
-POSTGRES_USER=postgres            # Database user
-POSTGRES_PASSWORD=password        # Database password
-POSTGRES_DB=ltm                   # Database name
-POSTGRES_SSL_MODE=disable         # SSL mode (disable, require, verify-ca, verify-full)
+POSTGRESQL_DATABASE_HOST=localhost           # Database host
+POSTGRESQL_DATABASE_PORT=5432                # Database port
+POSTGRESQL_DATABASE_USER=postgres            # Database user
+POSTGRESQL_DATABASE_PASSWORD=password        # Database password
+POSTGRESQL_DATABASE_DB=ltm                   # Database name
+POSTGRESQL_DATABASE_SSL_MODE=disable         # SSL mode (disable, require, verify-ca, verify-full)
 ````
 
 #### HTTP Server
