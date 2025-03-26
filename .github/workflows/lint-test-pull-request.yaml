@@ -1,9 +1,6 @@
-name: Lint go code
+name: Lint and test go code
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
 
 permissions:
@@ -24,3 +21,21 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.0
+  test:
+    name: Run Go Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v -race ./...
