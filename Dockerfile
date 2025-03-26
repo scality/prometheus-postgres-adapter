@@ -4,6 +4,8 @@ ARG RUNNER_IMAGE=gcr.io/distroless/static-debian12
 
 FROM --platform=$BUILDPLATFORM $BUILDER_IMAGE AS builder
 
+LABEL org.opencontainers.image.source=https://github.com/scality/prometheus-postgres-adapter
+
 ARG TARGETARCH
 ARG TARGETOS
 ARG APPLICATION_VERSION=dev
