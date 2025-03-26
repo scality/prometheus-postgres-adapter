@@ -342,14 +342,15 @@ func toTimestamp(milliseconds int64) time.Time {
 }
 
 // transformToMetricString converts a Prometheus metric to a string representation.
-// 	It takes a model.Metric as input and returns a string in the format:
-// 	net_storage_mb{
-//  	"instance": "prometheus-operator-prometheus.metalk8s-monitoring.svc:9090",
-//  	"job": "federate-prometheus",
-//  	"long_term": "true",
-//  	"prometheus": "metalk8s-monitoring/prometheus-operator-prometheus",
-//  	"prometheus_replica": "prometheus-prometheus-operator-prometheus-0"
-// 	}
+//
+//	It takes a model.Metric as input and returns a string in the format:
+//	net_storage_mb{
+//	 	"instance": "prometheus-operator-prometheus.metalk8s-monitoring.svc:9090",
+//	 	"job": "federate-prometheus",
+//	 	"long_term": "true",
+//	 	"prometheus": "metalk8s-monitoring/prometheus-operator-prometheus",
+//	 	"prometheus_replica": "prometheus-prometheus-operator-prometheus-0"
+//	}
 func transformToMetricString(m model.Metric) string {
 	metricName, hasName := m[model.MetricNameLabel]
 	numLabels := len(m) - 1

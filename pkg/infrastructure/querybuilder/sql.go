@@ -26,6 +26,16 @@ func NewSQL() *SQL {
 	return &SQL{}
 }
 
+// BuildSQLQuery transforms a Prometheus query into SQL.
+// It handles various label matcher types (equality, inequality, regex) by constructing
+// appropriate SQL conditions:
+// - For metric names (__name__), conditions are applied directly to the metric_name column
+// - For equality matchers, conditions use the JSONB containment operator (@>)
+// - For regex matchers, conditions use PostgreSQL regex operators (~ and !~)
+//
+// It anchors regex patterns automatically (adding ^ and $ if missing) and escapes single quotes.
+// Time constraints from the query are added as conditions on the metric_time column.
+//
 //nolint:gocognit,funlen,mnd // Query building is complex by essence
 func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 	matchers := make([]string, 0, len(prometheusQuery.Matchers))
