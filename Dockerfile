@@ -20,7 +20,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w -X prometheus-postgres-adapter/cmd/config.ApplicationVersion=${APPLICATION_VERSION}" -o prometheus-postgres-adapter ./cmd/main.go
 
-FROM $RUNNER_IMAGE AS runner
+FROM gcr.io/distroless/static-debian12 AS runner
 
 LABEL org.opencontainers.image.source=https://github.com/scality/prometheus-postgres-adapter
 

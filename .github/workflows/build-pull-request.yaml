@@ -6,7 +6,6 @@ on:
 env:
   platforms: linux/amd64
   builder_image: golang:1.24
-  runner_image: gcr.io/distroless/static-debian12
 
 jobs:
   build:
@@ -39,7 +38,6 @@ jobs:
           build-args: |
             APPLICATION_VERSION=pr-${{ github.event.pull_request.number }}-${{ steps.sha.outputs.sha }}
             BUILDER_IMAGE=${{ env.builder_image }}
-            RUNNER_IMAGE=${{ env.runner_image }}
           tags: ghcr.io/${{ github.repository }}:${{ steps.sha.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
