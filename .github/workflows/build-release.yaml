@@ -40,6 +40,6 @@ jobs:
             APPLICATION_VERSION=${{ github.ref }}
             BUILDER_IMAGE=${{ env.builder_image }}
             RUNNER_IMAGE=${{ env.runner_image }}
-          tags: ghcr.io/scality/${{ github.repository }}:${{ github.ref }}
+          tags: ghcr.io/${{ github.repository }}:${{ github.ref }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

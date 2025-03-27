@@ -19,8 +19,6 @@ This adapter implements the Prometheus remote read/write API, enabling long-term
 ### From Source
 
 ```bash
-git clone https://github.com/scality/prometheus-postgres-adapter.git
-cd prometheus-postgres-adapter
 go mod download
 go build -o prometheus-postgres-adapter
 ```
