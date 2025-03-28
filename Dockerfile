@@ -1,9 +1,6 @@
 ARG BUILDPLATFORM
-ARG BUILDER_IMAGE=golang:1.24
-ARG RUNNER_IMAGE=gcr.io/distroless/static-debian12
 
-FROM --platform=$BUILDPLATFORM $BUILDER_IMAGE AS builder
-
+FROM --platform=$BUILDPLATFORM golang:1.24 AS builder
 
 ARG TARGETARCH
 ARG TARGETOS

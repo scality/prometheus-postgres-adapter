@@ -5,7 +5,6 @@ on:
 
 env:
   platforms: linux/amd64
-  builder_image: golang:1.24
 
 jobs:
   build:
@@ -37,7 +36,6 @@ jobs:
           platforms: linux/amd64
           build-args: |
             APPLICATION_VERSION=pr-${{ github.event.pull_request.number }}-${{ steps.sha.outputs.sha }}
-            BUILDER_IMAGE=${{ env.builder_image }}
           tags: ghcr.io/${{ github.repository }}:${{ steps.sha.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
