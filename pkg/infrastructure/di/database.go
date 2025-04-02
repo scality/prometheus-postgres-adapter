@@ -2,6 +2,7 @@ package di
 
 import (
 	"fmt"
+
 	"prometheus-postgres-adapter/pkg/presentation/database"
 
 	"github.com/jackc/pgx/v5/pgxpool"

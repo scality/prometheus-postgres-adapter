@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"runtime"
+
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/di"
-	"runtime"
 )
 
 func main() {
@@ -50,7 +51,7 @@ func main() {
 		for concurrentError := range metricWriter.ErrorChan {
 			if concurrentError.Err != nil {
 				logger.Error().
-					Err(err).
+					Err(concurrentError.Err).
 					Str("component", concurrentError.Component).
 					Msg("Error in metric writer")
 			}

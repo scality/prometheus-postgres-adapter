@@ -227,7 +227,7 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 		p.labelRows = nil
 	}()
 
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "duplicate key") {
 		return errors.Wrap(err, "failed to save labels")
 	}
 
@@ -367,15 +367,17 @@ func transformToMetricString(m model.Metric) string {
 		}
 	}
 
-	switch numLabels {
-	case 0:
-		if hasName {
-			return string(metricName)
-		}
-
-		return "{}"
-	default:
+	// There should always be at least one label
+	// 	As the prometheus instance is configured to fetch metrics with the ltm label to true
+	if numLabels > 0 {
 		sort.Strings(labelStrings)
+
 		return fmt.Sprintf("%s{%s}", metricName, strings.Join(labelStrings, ", "))
 	}
+
+	if hasName {
+		return string(metricName)
+	}
+
+	return "{}"
 }
