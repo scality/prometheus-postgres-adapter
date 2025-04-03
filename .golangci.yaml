@@ -1,0 +1,409 @@
+version: "2"
+run:
+  go: 1.24.0
+  issues-exit-code: 100
+  tests: true
+linters:
+  default: none
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - containedctx
+    - contextcheck
+    - cyclop
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - err113
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - forcetypeassert
+    - funlen
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - godot
+    - gosec
+    - govet
+    - ineffassign
+    - ireturn
+    - lll
+    - makezero
+    - mnd
+    - nestif
+    - nilerr
+    - nilnil
+    - prealloc
+    - predeclared
+    - revive
+    - staticcheck
+    - tagalign
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - whitespace
+    - wrapcheck
+    - wsl
+  settings:
+    cyclop:
+      max-complexity: 10
+      package-average: 5
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    funlen:
+      lines: 50
+      statements: 25
+    gocognit:
+      min-complexity: 10
+    goconst:
+      min-len: 1
+      min-occurrences: 3
+      numbers: true
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+    lll:
+      line-length: 100
+    nolintlint:
+      require-explanation: true
+      require-specific: false
+    revive:
+      max-open-files: 2048
+      confidence: 0.2
+      severity: warning
+      enable-all-rules: false
+      rules:
+        - name: add-constant
+          severity: warning
+          disabled: true
+        - name: argument-limit
+          arguments:
+            - 4
+          severity: warning
+          disabled: false
+        - name: atomic
+          severity: warning
+          disabled: false
+        - name: banned-characters
+          disabled: true
+        - name: bare-return
+          severity: error
+          disabled: false
+        - name: blank-imports
+          severity: warning
+          disabled: false
+        - name: bool-literal-in-expr
+          severity: warning
+          disabled: false
+        - name: call-to-gc
+          severity: error
+          disabled: false
+        - name: cognitive-complexity
+          severity: error
+          disabled: true
+        - name: comment-spacings
+          arguments:
+            - nolint
+            - +kubebuilder
+          severity: warning
+          disabled: false
+        - name: confusing-naming
+          severity: error
+          disabled: true
+        - name: confusing-results
+          severity: error
+          disabled: false
+        - name: constant-logical-expr
+          severity: error
+          disabled: false
+        - name: context-as-argument
+          severity: error
+          disabled: false
+        - name: context-keys-type
+          severity: error
+          disabled: false
+        - name: cyclomatic
+          severity: error
+          disabled: true
+        - name: datarace
+          severity: error
+          disabled: false
+        - name: deep-exit
+          severity: error
+          disabled: false
+        - name: defer
+          arguments:
+            - - call-chain
+              - loop
+              - method-call
+              - recover
+              - immediate-recover
+              - return
+          severity: warning
+          disabled: false
+        - name: dot-imports
+          severity: warning
+          disabled: false
+        - name: duplicated-imports
+          severity: error
+          disabled: false
+        - name: early-return
+          arguments:
+            - preserveScope
+          severity: warning
+          disabled: false
+        - name: empty-block
+          severity: error
+          disabled: false
+        - name: empty-lines
+          severity: warning
+          disabled: false
+        - name: error-naming
+          severity: error
+          disabled: false
+        - name: error-return
+          severity: error
+          disabled: false
+        - name: error-strings
+          severity: error
+          disabled: false
+        - name: errorf
+          severity: error
+          disabled: false
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - sayRepetitiveInsteadOfStutters
+          severity: warning
+          disabled: false
+        - name: file-header
+          severity: warning
+          disabled: true
+        - name: flag-parameter
+          severity: error
+          disabled: false
+        - name: function-result-limit
+          arguments:
+            - 5
+          severity: warning
+          disabled: false
+        - name: function-length
+          severity: warning
+          disabled: true
+        - name: get-return
+          severity: error
+          disabled: false
+        - name: identical-branches
+          severity: error
+          disabled: false
+        - name: if-return
+          severity: error
+          disabled: false
+        - name: increment-decrement
+          severity: error
+          disabled: false
+        - name: indent-error-flow
+          arguments:
+            - preserveScope
+          severity: error
+          disabled: false
+        - name: import-shadowing
+          severity: error
+          disabled: false
+        - name: line-length-limit
+          severity: warning
+          disabled: true
+        - name: max-public-structs
+          severity: error
+          disabled: true
+        - name: modifies-parameter
+          severity: warning
+          disabled: false
+        - name: modifies-value-receiver
+          severity: warning
+          disabled: false
+        - name: nested-structs
+          severity: error
+          disabled: false
+        - name: optimize-operands-order
+          severity: warning
+          disabled: false
+        - name: package-comments
+          severity: error
+          disabled: false
+        - name: range
+          severity: error
+          disabled: false
+        - name: range-val-in-closure
+          severity: error
+          disabled: false
+        - name: range-val-address
+          severity: error
+          disabled: false
+        - name: receiver-naming
+          severity: error
+          disabled: false
+        - name: redefines-builtin-id
+          severity: error
+          disabled: false
+        - name: string-of-int
+          severity: error
+          disabled: false
+        - name: string-format
+          severity: warning
+          disabled: true
+        - name: struct-tag
+          arguments:
+            - json,inline
+          severity: error
+          disabled: false
+        - name: superfluous-else
+          arguments:
+            - preserveScope
+          severity: error
+          disabled: false
+        - name: time-equal
+          severity: error
+          disabled: false
+        - name: time-naming
+          severity: warning
+          disabled: false
+        - name: var-naming
+          severity: error
+          disabled: false
+        - name: var-declaration
+          severity: error
+          disabled: false
+        - name: unconditional-recursion
+          severity: error
+          disabled: false
+        - name: unexported-naming
+          severity: warning
+          disabled: false
+        - name: unexported-return
+          severity: error
+          disabled: false
+        - name: unhandled-error
+          arguments:
+            - fmt.Printf
+          severity: error
+          disabled: false
+        - name: unnecessary-stmt
+          severity: error
+          disabled: false
+        - name: unreachable-code
+          severity: error
+          disabled: false
+        - name: unused-parameter
+          severity: error
+          disabled: false
+        - name: unused-receiver
+          severity: warning
+          disabled: false
+        - name: use-any
+          severity: error
+          disabled: false
+        - name: useless-break
+          severity: error
+          disabled: false
+        - name: waitgroup-by-value
+          severity: error
+          disabled: false
+    staticcheck:
+      checks:
+        - all
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - cyclop
+          - err113
+          - errcheck
+          - forcetypeassert
+          - funlen
+          - gochecknoglobals
+          - gocognit
+          - goconst
+          - gosec
+          - lll
+          - mnd
+          - nilnil
+          - revive
+          - wrapcheck
+        path: _test\.go
+      - linters:
+          - cyclop
+          - err113
+          - errcheck
+          - forcetypeassert
+          - funlen
+          - gochecknoglobals
+          - gocognit
+          - goconst
+          - gosec
+          - lll
+          - mnd
+          - nilnil
+          - revive
+          - wrapcheck
+        path: /tests/
+      - linters:
+          - cyclop
+          - err113
+          - errcheck
+          - forcetypeassert
+          - funlen
+          - gochecknoglobals
+          - gocognit
+          - goconst
+          - gosec
+          - lll
+          - mnd
+          - nilnil
+          - revive
+          - wrapcheck
+        path: ^tests/
+      - linters:
+          - govet
+        text: declaration of "(err|ctx)" shadows declaration at
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  fix: true
+severity:
+  default: warning
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/scality/artesca
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -1,0 +1,30 @@
+name: PR Build
+
+on:
+  pull_request:
+
+jobs:
+  prepare:
+    name: Prepare Build Parameters
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      application_version: ${{ steps.vars.outputs.application_version }}
+    steps:
+      - name: Generate short SHA
+        id: sha
+        run: echo "sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Set Docker tag and application version
+        id: vars
+        run: |
+          echo "tag=${{ steps.sha.outputs.sha }}" >> $GITHUB_OUTPUT
+          echo "application_version=pr-${{ github.event.pull_request.number }}-${{ steps.sha.outputs.sha }}" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build Docker Image
+    needs: prepare
+    uses: ./.github/workflows/docker-build.yaml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      application_version: ${{ needs.prepare.outputs.application_version }} 
