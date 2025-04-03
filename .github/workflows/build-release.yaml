@@ -8,23 +8,9 @@ on:
       - '**'
 
 jobs:
-  prepare:
-    name: Prepare Build Parameters
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.vars.outputs.tag }}
-      application_version: ${{ steps.vars.outputs.application_version }}
-    steps:
-      - name: Set Docker tag and application version
-        id: vars
-        run: |
-          echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          echo "application_version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-
   build:
     name: Build Docker Image
-    needs: prepare
     uses: ./.github/workflows/docker-build.yaml
     with:
-      tag: ${{ needs.prepare.outputs.tag }}
-      application_version: ${{ needs.prepare.outputs.application_version }} 
+      tag: ${{ github.ref_name }}
+      application_version: ${{ github.ref_name }}
