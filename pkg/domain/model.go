@@ -2,11 +2,11 @@ package domain
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
 )
@@ -68,14 +68,14 @@ func (l *SampleLabels) Scan(value any) error {
 	case string:
 		t = []byte(v)
 	default:
-		return fmt.Errorf("invalid type for labels: %T", value)
+		return errors.Errorf("invalid type for labels: %T", value)
 	}
 
 	m := make(map[string]string)
-	err := json.Unmarshal(t, &m)
 
+	err := json.Unmarshal(t, &m)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to unmarshal labels")
 	}
 
 	*l = SampleLabels{

@@ -64,24 +64,30 @@ func (p *PostgreSQL) QueryDatabaseSamples(
 		return nil, errors.Wrap(err, "failed to execute query")
 	}
 
-	samples, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*domain.SamplesReadFromDatabase, error) {
-		var timestamp time.Time
-		var name string
-		var value float64
-		var labels domain.SampleLabels
+	samples, err := pgx.CollectRows(
+		rows,
+		func(row pgx.CollectableRow) (*domain.SamplesReadFromDatabase, error) {
+			var timestamp time.Time
 
-		err := row.Scan(&timestamp, &name, &value, &labels)
-		if err != nil {
-			return &domain.SamplesReadFromDatabase{}, errors.Wrap(err, "failed to scan row")
-		}
+			var name string
 
-		return &domain.SamplesReadFromDatabase{
-			Timestamp: timestamp,
-			Value:     value,
-			Name:      name,
-			Labels:    labels,
-		}, nil
-	})
+			var value float64
+
+			var labels domain.SampleLabels
+
+			err := row.Scan(&timestamp, &name, &value, &labels)
+			if err != nil {
+				return &domain.SamplesReadFromDatabase{}, errors.Wrap(err, "failed to scan row")
+			}
+
+			return &domain.SamplesReadFromDatabase{
+				Timestamp: timestamp,
+				Value:     value,
+				Name:      name,
+				Labels:    labels,
+			}, nil
+		},
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to collect rows")
 	}
