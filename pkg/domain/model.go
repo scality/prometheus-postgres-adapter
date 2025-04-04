@@ -2,12 +2,11 @@ package domain
 
 import (
 	"encoding/json"
-	"reflect"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
 )
@@ -45,20 +44,42 @@ func (l *SampleLabels) Scan(value any) error {
 		return nil
 	}
 
-	v, ok := value.([]uint8)
-	if !ok {
-		return errors.Errorf("failed to scan labels: %s", reflect.TypeOf(value))
+	// Example of labels received from Prometheus:
+	// {
+	//   "job": "federate-prometheus",
+	//   "pod": "artesca-storage-service-e848f788-ds-0",
+	//   "path": "/mnt/data-01",
+	//   "service": "artesca-storage-service-ds-e848f788",
+	//   "endpoint": "http",
+	//   "instance": "prometheus-operator-prometheus.metalk8s-monitoring.svc:9090",
+	//   "container": "hd",
+	//   "long_term": "true",
+	//   "namespace": "xcore",
+	//   "prometheus": "metalk8s-monitoring/prometheus-operator-prometheus",
+	//   "exported_job": "artesca-storage-service-ds-e848f788",
+	//   "prometheus_replica": "prometheus-prometheus-operator-prometheus-0",
+	//   "xcore_scality_com_node_name": "ip-10-0-129-137.eu-north-1.compute.internal",
+	//   "xcore_scality_com_resource_type": "dataserver"
+	// }
+	var t []byte
+	switch v := value.(type) {
+	case []uint8:
+		t = v
+	case string:
+		t = []byte(v)
+	default:
+		return fmt.Errorf("invalid type for labels: %T", value)
 	}
 
 	m := make(map[string]string)
+	err := json.Unmarshal(t, &m)
 
-	err := json.Unmarshal(v, &m)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal labels")
+		return err
 	}
 
 	*l = SampleLabels{
-		JSON:        v,
+		JSON:        t,
 		Map:         m,
 		OrderedKeys: createOrderedKeys(&m),
 	}
