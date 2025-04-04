@@ -4,70 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"prometheus-postgres-adapter/pkg/presentation/database"
+	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	"prometheus-postgres-adapter/pkg/presentation/database"
-	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 )
 
 const (
-	postgreSQLTickerPeriod = 10 * time.Millisecond
-
-	postgreSQLCreateMetricsLabelsTableQuery = `
-		CREATE TABLE 
-		IF NOT EXISTS metric_labels
-		(
-			metric_id BIGINT PRIMARY KEY,
-			metric_name TEXT NOT NULL,
-			metric_name_label TEXT NOT NULL,
-			metric_labels jsonb,
-			UNIQUE(metric_name, metric_labels)
-		)`
-
-	postgreSQLCreateMetricsLabelsIndexQuery = `
-		CREATE INDEX
-		IF NOT EXISTS metric_labels_labels_idx
-		ON metric_labels 
-		USING GIN (metric_labels)
-	`
-
-	postgreSQLCreateMetricsValuesTableQuery = `
-		CREATE TABLE
-		IF NOT EXISTS metric_values
-		(
-			metric_id BIGINT,
-			metric_time TIMESTAMPTZ,
-			metric_value FLOAT8
-		)
-	`
-
-	postgreSQLCreateMetricsValuesIndexQuery = `
-		CREATE INDEX 
-		IF NOT EXISTS metric_values_id_time_idx
-		ON metric_values
-		USING btree 
-		(
-			metric_id,
-			metric_time DESC
-		)
-	`
-
-	postgreSQLCreateMetricsValuesTimeIndexQuery = `
-		CREATE INDEX 
-		IF NOT EXISTS metric_values_time_idx
-		ON metric_values 
-		USING btree 
-		(
-			metric_time DESC
-		)
-	`
-
+	postgreSQLTickerPeriod             = 10 * time.Millisecond
 	postgreSQLSelectMetricsLabelsQuery = `
 		SELECT metric_name, metric_labels
 		FROM metric_labels
@@ -113,14 +62,8 @@ func NewPostgreSQL(
 		ErrorChan:        make(chan ConcurrentError),
 	}
 
-	// Initialize mandatory tables
-	err := postgreSQL.setupPostgreSQLTables(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to setup postgresql tables")
-	}
-
 	// Recover and register existing metrics
-	err = postgreSQL.registerExistingMetrics(ctx)
+	err := postgreSQL.registerExistingMetrics(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to register existing metrics")
 	}
@@ -151,35 +94,6 @@ func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 		}
 
 		p.syncMap.Store(metricName, result["metric_labels"])
-	}
-
-	return nil
-}
-
-func (p *PostgreSQL) setupPostgreSQLTables(ctx context.Context) error {
-	err := p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsLabelsTableQuery)
-	if err != nil {
-		return errors.Wrap(err, "failed to create metric_labels table")
-	}
-
-	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsLabelsIndexQuery)
-	if err != nil {
-		return errors.Wrap(err, "failed to create metric_labels index")
-	}
-
-	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesTableQuery)
-	if err != nil {
-		return errors.Wrap(err, "failed to create metric_values table")
-	}
-
-	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesIndexQuery)
-	if err != nil {
-		return errors.Wrap(err, "failed to create metric_values index")
-	}
-
-	err = p.postgreSQLClient.Exec(ctx, postgreSQLCreateMetricsValuesTimeIndexQuery)
-	if err != nil {
-		return errors.Wrap(err, "failed to create metric_values time index")
 	}
 
 	return nil
