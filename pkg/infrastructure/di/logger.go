@@ -2,9 +2,10 @@ package di
 
 import (
 	"os"
-	"prometheus-postgres-adapter/cmd/config"
 
 	"github.com/rs/zerolog"
+
+	"prometheus-postgres-adapter/cmd/config"
 )
 
 func (c *Container) GetLogger() *zerolog.Logger {

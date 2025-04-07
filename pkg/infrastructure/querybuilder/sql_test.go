@@ -1,13 +1,14 @@
 package querybuilder_test
 
 import (
-	"prometheus-postgres-adapter/pkg/infrastructure/querybuilder"
 	"testing"
 	"time"
 
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"prometheus-postgres-adapter/pkg/infrastructure/querybuilder"
 )
 
 func TestSQL_BuildSQLQuery(t *testing.T) {

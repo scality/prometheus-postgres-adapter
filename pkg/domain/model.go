@@ -2,7 +2,6 @@ package domain
 
 import (
 	"encoding/json"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -45,20 +44,34 @@ func (l *SampleLabels) Scan(value any) error {
 		return nil
 	}
 
-	v, ok := value.([]uint8)
-	if !ok {
-		return errors.Errorf("failed to scan labels: %s", reflect.TypeOf(value))
+	// Example of labels received from Prometheus:
+	// {
+	//   "job": "federate-prometheus",
+	//   "path": "/mnt/data-01",
+	//   "endpoint": "http",
+	//   "instance": "prometheus-operator-prometheus.metalk8s-monitoring.svc:9090",
+	//   "long_term": "true",
+	//   "prometheus_replica": "prometheus-prometheus-operator-prometheus-0",
+	// }
+	var t []byte
+	switch v := value.(type) {
+	case []uint8:
+		t = v
+	case string:
+		t = []byte(v)
+	default:
+		return errors.Errorf("invalid type for labels: %T", value)
 	}
 
 	m := make(map[string]string)
 
-	err := json.Unmarshal(v, &m)
+	err := json.Unmarshal(t, &m)
 	if err != nil {
 		return errors.Wrap(err, "failed to unmarshal labels")
 	}
 
 	*l = SampleLabels{
-		JSON:        v,
+		JSON:        t,
 		Map:         m,
 		OrderedKeys: createOrderedKeys(&m),
 	}

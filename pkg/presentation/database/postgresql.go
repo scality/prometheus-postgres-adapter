@@ -2,11 +2,13 @@ package database
 
 import (
 	"context"
-	"prometheus-postgres-adapter/pkg/domain"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
+
+	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (
@@ -63,7 +65,30 @@ func (p *PostgreSQL) QueryDatabaseSamples(
 		return nil, errors.Wrap(err, "failed to execute query")
 	}
 
-	samples, err := pgx.CollectRows(rows, pgx.RowToStructByPos[*domain.SamplesReadFromDatabase])
+	samples, err := pgx.CollectRows(
+		rows,
+		func(row pgx.CollectableRow) (*domain.SamplesReadFromDatabase, error) {
+			var timestamp time.Time
+
+			var name string
+
+			var value float64
+
+			var labels domain.SampleLabels
+
+			err := row.Scan(&timestamp, &name, &value, &labels)
+			if err != nil {
+				return &domain.SamplesReadFromDatabase{}, errors.Wrap(err, "failed to scan row")
+			}
+
+			return &domain.SamplesReadFromDatabase{
+				Timestamp: timestamp,
+				Value:     value,
+				Name:      name,
+				Labels:    labels,
+			}, nil
+		},
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to collect rows")
 	}

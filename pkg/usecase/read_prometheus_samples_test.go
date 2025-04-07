@@ -2,8 +2,6 @@ package usecase_test
 
 import (
 	"context"
-	"prometheus-postgres-adapter/pkg/domain"
-	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
 	"time"
 
@@ -12,6 +10,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"prometheus-postgres-adapter/pkg/domain"
+	"prometheus-postgres-adapter/pkg/usecase"
 )
 
 // MockSQLQueryBuilder mocks the SQLQueryBuilder interface.
