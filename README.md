@@ -12,7 +12,7 @@ This adapter implements the Prometheus remote read/write API, enabling long-term
 
 - Store Prometheus metrics in PostgreSQL
 - Support for Prometheus remote write/read API
-- Configurable metrics concurrent parser / writer 
+- Configurable metrics concurrent parser / writer
 
 ## Installation
 
@@ -83,7 +83,7 @@ LOG_LEVEL=info                    # Log level (debug, info, warn, error)
 ```
 
 ## Kubernetes Usage Limitation
-**Important**: This adapter is not intended to be deployed with multiple replicas in a Kubernetes context. 
+**Important**: This adapter is not intended to be deployed with multiple replicas in a Kubernetes context.
 
-The application does not include a mechanism to propagate new metrics at runtime across multiple instances. 
+The application does not include a mechanism to propagate new metrics at runtime across multiple instances.
 Running multiple replicas may result in inconsistent metric storage.
