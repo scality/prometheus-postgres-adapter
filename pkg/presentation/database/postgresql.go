@@ -68,11 +68,8 @@ func (p *PostgreSQL) QueryDatabaseSamples(
 		rows,
 		func(row pgx.CollectableRow) (*domain.SamplesReadFromDatabase, error) {
 			var timestamp time.Time
-
 			var name string
-
 			var value float64
-
 			var labels domain.SampleLabels
 
 			err := row.Scan(&timestamp, &name, &value, &labels)
