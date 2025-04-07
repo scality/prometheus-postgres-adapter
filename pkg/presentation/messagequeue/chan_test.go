@@ -1,11 +1,12 @@
 package messagequeue_test
 
 import (
-	"prometheus-postgres-adapter/pkg/domain"
-	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"prometheus-postgres-adapter/pkg/domain"
+	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 )
 
 func TestNewChan(t *testing.T) {

@@ -2,10 +2,11 @@ package di
 
 import (
 	"fmt"
-	"prometheus-postgres-adapter/pkg/presentation/database"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq" // PostgreSQL driver
+
+	"prometheus-postgres-adapter/pkg/presentation/database"
 )
 
 const postgresConnexionString = "postgresql://%s:%s@%s:%d/%s"

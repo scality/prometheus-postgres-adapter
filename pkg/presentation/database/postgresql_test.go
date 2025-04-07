@@ -4,13 +4,14 @@ package database_test
 import (
 	"context"
 	"errors"
-	"prometheus-postgres-adapter/pkg/presentation/database"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"prometheus-postgres-adapter/pkg/presentation/database"
 )
 
 // MockPool is our mock implementation of pgxpool.Pool.

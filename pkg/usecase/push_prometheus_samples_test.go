@@ -2,13 +2,14 @@ package usecase_test
 
 import (
 	"context"
-	"prometheus-postgres-adapter/pkg/domain"
-	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+
+	"prometheus-postgres-adapter/pkg/domain"
+	"prometheus-postgres-adapter/pkg/usecase"
 )
 
 // MockMessageQueuePusher is a mock implementation of the messageQueuePusher interface.

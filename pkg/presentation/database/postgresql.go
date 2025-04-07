@@ -2,12 +2,13 @@ package database
 
 import (
 	"context"
-	"prometheus-postgres-adapter/pkg/domain"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
+
+	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (
@@ -68,8 +69,11 @@ func (p *PostgreSQL) QueryDatabaseSamples(
 		rows,
 		func(row pgx.CollectableRow) (*domain.SamplesReadFromDatabase, error) {
 			var timestamp time.Time
+
 			var name string
+
 			var value float64
+
 			var labels domain.SampleLabels
 
 			err := row.Scan(&timestamp, &name, &value, &labels)
