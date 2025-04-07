@@ -47,19 +47,11 @@ func (l *SampleLabels) Scan(value any) error {
 	// Example of labels received from Prometheus:
 	// {
 	//   "job": "federate-prometheus",
-	//   "pod": "artesca-storage-service-e848f788-ds-0",
 	//   "path": "/mnt/data-01",
-	//   "service": "artesca-storage-service-ds-e848f788",
 	//   "endpoint": "http",
 	//   "instance": "prometheus-operator-prometheus.metalk8s-monitoring.svc:9090",
-	//   "container": "hd",
 	//   "long_term": "true",
-	//   "namespace": "xcore",
-	//   "prometheus": "metalk8s-monitoring/prometheus-operator-prometheus",
-	//   "exported_job": "artesca-storage-service-ds-e848f788",
 	//   "prometheus_replica": "prometheus-prometheus-operator-prometheus-0",
-	//   "xcore_scality_com_node_name": "ip-10-0-129-137.eu-north-1.compute.internal",
-	//   "xcore_scality_com_resource_type": "dataserver"
 	// }
 	var t []byte
 	switch v := value.(type) {
