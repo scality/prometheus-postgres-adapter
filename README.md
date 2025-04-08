@@ -113,6 +113,20 @@ The SQL script creates two tables: `metric_labels` and `metric_values`, along wi
 
 These indexes are designed to enhance query performance, particularly for time-series and metadata-heavy workloads.
 
+### Prometheus Setup
+
+A Prometheus instance is needed with remote_read and remote_write configured as shown below:
+
+```yaml
+remote_read:
+  - url: "http://adapter.service.url:9201/read"
+remote_write:
+  - url: "http://adapter.service.url:9201/write"
+```
+
+[Refer to the Prometheus documentation](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
+to further customize Prometheus' remote writing capabilities
+
 ### Adapter Configuration
 
 The adapter can be configured using environment variables:
