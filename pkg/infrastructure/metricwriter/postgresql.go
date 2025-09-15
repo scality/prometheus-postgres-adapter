@@ -19,8 +19,20 @@ import (
 const (
 	postgreSQLTickerPeriod             = 10 * time.Millisecond
 	postgreSQLSelectMetricsLabelsQuery = `
-		SELECT metric_name, metric_labels
+		SELECT metric_id, metric_name_label, metric_labels
 		FROM metric_labels
+	`
+	postgreSQLGetNextMetricIDQuery = `
+		SELECT COALESCE(MAX(metric_id), 0) + 1 as next_id
+		FROM metric_labels
+	`
+	postgreSQLInsertMetricLabelQuery = `
+		INSERT INTO metric_labels (metric_id, metric_name, metric_name_label, metric_labels)
+		SELECT $1, $2, $3, $4
+		WHERE NOT EXISTS (
+			SELECT 1 FROM metric_labels WHERE metric_name_label = $3
+		)
+		RETURNING metric_id
 	`
 )
 
@@ -36,6 +48,9 @@ type (
 		writerCount int
 
 		postgreSQLClient *database.PostgreSQL
+
+		// Mutex to protect metric ID generation from race conditions
+		metricIDMutex sync.Mutex
 
 		ErrorChan chan ConcurrentError
 	}
@@ -89,12 +104,24 @@ func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 	}
 
 	for _, result := range results {
-		metricName, ok := result["metric_name"].(string)
+		metricID, ok := result["metric_id"].(int64)
 		if !ok {
-			return errors.New("failed to cast metric_name to string")
+			// Handle different possible integer types from database
+			if metricIDInt, ok := result["metric_id"].(int); ok {
+				metricID = int64(metricIDInt)
+			} else {
+				return errors.New("failed to cast metric_id to int64")
+			}
 		}
 
-		p.syncMap.Store(metricName, result["metric_labels"])
+		metricNameLabel, ok := result["metric_name_label"].(string)
+		if !ok {
+			return errors.New("failed to cast metric_name_label to string")
+		}
+
+		// Store the metric ID using the full metric string as key
+		// This ensures proper mapping during metric ingestion
+		p.syncMap.Store(metricNameLabel, metricID)
 	}
 
 	return nil
@@ -125,45 +152,63 @@ func (p *PostgreSQL) saver(ctx context.Context) {
 }
 
 func (p *PostgreSQL) save(ctx context.Context) error {
-	err := p.postgreSQLClient.CopyRows(
-		ctx,
-		"metric_labels",
-		[]string{
-			"metric_id",
-			"metric_name",
-			"metric_name_label",
-			"metric_labels",
-		},
-		p.labelRows,
-	)
+	// Create copies of the data to avoid issues with deferred cleanup
+	labelRowsCopy := make([][]any, len(p.labelRows))
+	copy(labelRowsCopy, p.labelRows)
 
+	valuesRowsCopy := make([][]any, len(p.valuesRows))
+	copy(valuesRowsCopy, p.valuesRows)
+
+	// Always reset the rows, regardless of success or failure
 	defer func() {
-		// Reset the label rows
 		p.labelRows = nil
-	}()
-
-	if err != nil && !strings.Contains(err.Error(), "duplicate key") {
-		return errors.Wrap(err, "failed to save labels")
-	}
-
-	err = p.postgreSQLClient.CopyRows(
-		ctx,
-		"metric_values",
-		[]string{
-			"metric_id",
-			"metric_time",
-			"metric_value",
-		},
-		p.valuesRows,
-	)
-
-	defer func() {
-		// Reset the values rows
 		p.valuesRows = nil
 	}()
 
-	if err != nil {
-		return errors.Wrap(err, "failed to save values")
+	// Save labels using atomic insert to prevent duplicates
+	if len(labelRowsCopy) > 0 {
+		for _, labelRow := range labelRowsCopy {
+			if len(labelRow) != 4 {
+				continue // Skip invalid rows
+			}
+
+			// Use atomic insert query that prevents duplicates
+			_, err := p.postgreSQLClient.QueryToMap(
+				ctx,
+				postgreSQLInsertMetricLabelQuery,
+				labelRow[0], // metric_id
+				labelRow[1], // metric_name
+				labelRow[2], // metric_name_label
+				labelRow[3], // metric_labels
+			)
+
+			if err != nil {
+				// If it's not a duplicate key error, it's a real problem
+				if !strings.Contains(err.Error(), "duplicate key") &&
+					!strings.Contains(err.Error(), "violates unique constraint") {
+					return errors.Wrap(err, "failed to save labels")
+				}
+				// Otherwise, the label already exists, which is fine
+			}
+		}
+	}
+
+	// Only save values if we have any to save
+	if len(valuesRowsCopy) > 0 {
+		err := p.postgreSQLClient.CopyRows(
+			ctx,
+			"metric_values",
+			[]string{
+				"metric_id",
+				"metric_time",
+				"metric_value",
+			},
+			valuesRowsCopy,
+		)
+
+		if err != nil {
+			return errors.Wrap(err, "failed to save values")
+		}
 	}
 
 	return nil
@@ -194,43 +239,75 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 				// Get the metric ID from the sync map
 				id, ok := p.syncMap.Load(metricString)
 				if !ok {
-					// This operation will be expensive if there are a lot of metrics
-					// In our use-case, we expect a small number of metrics
-					// If we ever need to scale this, we should consider using a different approach,
-					// for example, a map with a mutex
-					nextID := 1
+					// Thread-safe metric ID generation using mutex protection
+					p.metricIDMutex.Lock()
 
-					p.syncMap.Range(func(_, _ any) bool {
-						nextID++
-
-						return true
-					})
-
-					// Store the metric ID in the sync map
-					p.syncMap.Store(metricString, nextID)
-
-					index := strings.Index(metricString, "{")
-					jsonbMap := make(map[string]any)
-
-					err := json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
-					if err != nil {
-						p.ErrorChan <- ConcurrentError{
-							Err:       errors.Wrap(err, "failed to unmarshal json"),
-							Component: "Parser",
+					// Double-check pattern: another goroutine might have added it while we waited
+					if existingID, exists := p.syncMap.Load(metricString); exists {
+						p.metricIDMutex.Unlock()
+						id = existingID
+					} else {
+						// Generate new metric ID safely
+						nextIDResults, err := p.postgreSQLClient.QueryToMap(ctx, postgreSQLGetNextMetricIDQuery)
+						if err != nil {
+							p.metricIDMutex.Unlock()
+							p.ErrorChan <- ConcurrentError{
+								Err:       errors.Wrap(err, "failed to get next metric ID"),
+								Component: "Parser",
+							}
+							continue
 						}
 
-						continue
+						if len(nextIDResults) == 0 {
+							p.metricIDMutex.Unlock()
+							p.ErrorChan <- ConcurrentError{
+								Err:       errors.New("no result from next metric ID query"),
+								Component: "Parser",
+							}
+							continue
+						}
+
+						nextID, ok := nextIDResults[0]["next_id"].(int64)
+						if !ok {
+							// Handle different possible integer types from database
+							if nextIDInt, ok := nextIDResults[0]["next_id"].(int); ok {
+								nextID = int64(nextIDInt)
+							} else {
+								p.metricIDMutex.Unlock()
+								p.ErrorChan <- ConcurrentError{
+									Err:       errors.New("failed to cast next metric ID to int64"),
+									Component: "Parser",
+								}
+								continue
+							}
+						}
+
+						// Store the metric ID in the sync map first to prevent duplicate processing
+						p.syncMap.Store(metricString, nextID)
+						p.metricIDMutex.Unlock()
+
+						index := strings.Index(metricString, "{")
+						jsonbMap := make(map[string]any)
+
+						err = json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
+						if err != nil {
+							p.ErrorChan <- ConcurrentError{
+								Err:       errors.Wrap(err, "failed to unmarshal json"),
+								Component: "Parser",
+							}
+							continue
+						}
+
+						// Add this metric to the labels to be written
+						p.labelRows = append(p.labelRows, []any{
+							nextID,
+							metricString[:index],
+							metricString,
+							jsonbMap,
+						})
+
+						id = nextID
 					}
-
-					// Add this metric to the labels to be written
-					p.labelRows = append(p.labelRows, []any{
-						nextID,
-						metricString[:index],
-						metricString,
-						jsonbMap,
-					})
-
-					id = nextID
 				}
 
 				// Add this sample to the values to be written
