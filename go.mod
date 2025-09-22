@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/common v0.66.1
 	github.com/prometheus/prometheus v0.306.0
 	github.com/rs/zerolog v1.34.0
-	github.com/sethvargo/go-envconfig v1.1.1
+	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/stretchr/testify v1.11.1
 )
 
