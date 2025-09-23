@@ -3,16 +3,15 @@ package di
 import (
 	"context"
 	"net/http"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog"
-
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/metricwriter"
 	"prometheus-postgres-adapter/pkg/infrastructure/querybuilder"
 	"prometheus-postgres-adapter/pkg/presentation/database"
 	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"prometheus-postgres-adapter/pkg/usecase"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 )
 
 type Container struct {

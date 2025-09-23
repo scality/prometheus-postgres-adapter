@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 	"log"
-	"runtime"
-
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/di"
+	"runtime"
 )
 
 func main() {

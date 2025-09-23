@@ -2,13 +2,12 @@ package database
 
 import (
 	"context"
+	"prometheus-postgres-adapter/pkg/domain"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
-
-	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (

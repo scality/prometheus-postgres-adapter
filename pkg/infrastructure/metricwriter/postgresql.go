@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"prometheus-postgres-adapter/pkg/presentation/database"
+	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"sort"
 	"strings"
 	"sync"
@@ -11,9 +13,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
-
-	"prometheus-postgres-adapter/pkg/presentation/database"
-	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 )
 
 const (
@@ -34,6 +33,8 @@ const (
 		)
 		RETURNING metric_id
 	`
+
+	postgreSQLLabelRowLength = 4
 )
 
 type (
@@ -104,14 +105,15 @@ func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 	}
 
 	for _, result := range results {
-		metricID, ok := result["metric_id"].(int64)
-		if !ok {
+		metricID, metricIDOk := result["metric_id"].(int64)
+		if !metricIDOk {
 			// Handle different possible integer types from database
-			if metricIDInt, ok := result["metric_id"].(int); ok {
-				metricID = int64(metricIDInt)
-			} else {
+			metricIDInt, ok := result["metric_id"].(int)
+			if !ok {
 				return errors.New("failed to cast metric_id to int64")
 			}
+
+			metricID = int64(metricIDInt)
 		}
 
 		metricNameLabel, ok := result["metric_name_label"].(string)
@@ -151,6 +153,7 @@ func (p *PostgreSQL) saver(ctx context.Context) {
 	}
 }
 
+//nolint:gocognit,funlen,cyclop // This function is not that complicated
 func (p *PostgreSQL) save(ctx context.Context) error {
 	// Create copies of the data to avoid issues with deferred cleanup
 	labelRowsCopy := make([][]any, len(p.labelRows))
@@ -168,7 +171,7 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 	// Save labels using atomic insert to prevent duplicates
 	if len(labelRowsCopy) > 0 {
 		for _, labelRow := range labelRowsCopy {
-			if len(labelRow) != 4 {
+			if len(labelRow) != postgreSQLLabelRowLength {
 				continue // Skip invalid rows
 			}
 
@@ -181,7 +184,6 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 				labelRow[2], // metric_name_label
 				labelRow[3], // metric_labels
 			)
-
 			if err != nil {
 				// If it's not a duplicate key error, it's a real problem
 				if !strings.Contains(err.Error(), "duplicate key") &&
@@ -205,7 +207,6 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 			},
 			valuesRowsCopy,
 		)
-
 		if err != nil {
 			return errors.Wrap(err, "failed to save values")
 		}
@@ -214,7 +215,7 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 	return nil
 }
 
-//nolint:gocognit,funlen // Splitting this function would make it even more complex
+//nolint:gocognit,funlen,cyclop // Splitting this function would make it even more complex
 func (p *PostgreSQL) parser(ctx context.Context) {
 	ticker := time.NewTicker(postgreSQLTickerPeriod)
 
@@ -238,13 +239,14 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 
 				// Get the metric ID from the sync map
 				id, ok := p.syncMap.Load(metricString)
-				if !ok {
+				if !ok { //nolint:nestif // This needs refactoring
 					// Thread-safe metric ID generation using mutex protection
 					p.metricIDMutex.Lock()
 
 					// Double-check pattern: another goroutine might have added it while we waited
 					if existingID, exists := p.syncMap.Load(metricString); exists {
 						p.metricIDMutex.Unlock()
+
 						id = existingID
 					} else {
 						// Generate new metric ID safely
@@ -255,6 +257,7 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 								Err:       errors.Wrap(err, "failed to get next metric ID"),
 								Component: "Parser",
 							}
+
 							continue
 						}
 
@@ -264,22 +267,25 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 								Err:       errors.New("no result from next metric ID query"),
 								Component: "Parser",
 							}
+
 							continue
 						}
 
 						nextID, ok := nextIDResults[0]["next_id"].(int64)
 						if !ok {
 							// Handle different possible integer types from database
-							if nextIDInt, ok := nextIDResults[0]["next_id"].(int); ok {
-								nextID = int64(nextIDInt)
-							} else {
+							nextIDInt, ok := nextIDResults[0]["next_id"].(int)
+							if !ok {
 								p.metricIDMutex.Unlock()
 								p.ErrorChan <- ConcurrentError{
 									Err:       errors.New("failed to cast next metric ID to int64"),
 									Component: "Parser",
 								}
+
 								continue
 							}
+
+							nextID = int64(nextIDInt)
 						}
 
 						// Store the metric ID in the sync map first to prevent duplicate processing
@@ -295,6 +301,7 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 								Err:       errors.Wrap(err, "failed to unmarshal json"),
 								Component: "Parser",
 							}
+
 							continue
 						}
 

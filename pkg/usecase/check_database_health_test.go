@@ -3,13 +3,12 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	"prometheus-postgres-adapter/pkg/usecase"
 )
 
 type MockHealthChecker struct {
