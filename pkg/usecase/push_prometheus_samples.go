@@ -2,11 +2,10 @@ package usecase
 
 import (
 	"context"
+	"prometheus-postgres-adapter/pkg/domain"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
-	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (

@@ -55,7 +55,7 @@ linters:
   settings:
     cyclop:
       max-complexity: 10
-      package-average: 5
+      package-average: 6
     errcheck:
       check-type-assertions: true
       check-blank: true

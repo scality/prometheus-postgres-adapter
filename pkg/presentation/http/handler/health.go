@@ -2,10 +2,9 @@ package handler
 
 import (
 	"net/http"
+	"prometheus-postgres-adapter/pkg/usecase"
 
 	"github.com/rs/zerolog"
-
-	"prometheus-postgres-adapter/pkg/usecase"
 )
 
 type Health struct {
