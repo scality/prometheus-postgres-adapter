@@ -2,10 +2,11 @@ package usecase
 
 import (
 	"context"
-	"prometheus-postgres-adapter/pkg/domain"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
+	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (
@@ -33,12 +34,10 @@ func NewPushPrometheusSamples(
 }
 
 func (uc *PushPrometheusSamples) Execute(_ context.Context, samples *domain.Samples) error {
-	uc.logger.Debug().Msg("Executing push samples use case")
+	uc.logger.Debug().Msg("Executing use case")
 
 	err := uc.messageQueuePusher.Push(samples)
 	if err != nil {
-		uc.logger.Debug().Err(err).Msg("Failed to push samples")
-
 		return errors.Wrap(err, "failed to push samples")
 	}
 
