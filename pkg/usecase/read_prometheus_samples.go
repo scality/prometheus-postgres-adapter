@@ -2,12 +2,13 @@ package usecase
 
 import (
 	"context"
-	"prometheus-postgres-adapter/pkg/domain"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rs/zerolog"
+
+	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (
@@ -37,8 +38,6 @@ func NewReadPrometheusSamples(
 	querier SQLQuerier,
 ) *ReadPrometheusSamples {
 	l := logger.With().Str("usecase", "read_samples").Logger()
-
-	logger.Debug().Msg("ReadPrometheusSamples initialized")
 
 	return &ReadPrometheusSamples{
 		logger:  &l,
