@@ -50,7 +50,7 @@ func NewEnvironment(ctx context.Context) (*Environment, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to process environment variables")
 	}
-	defer fmt.Println(ToString(cfg))
+	fmt.Println(ToString(cfg))
 
 	return cfg, nil
 }

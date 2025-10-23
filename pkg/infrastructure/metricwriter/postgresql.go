@@ -97,6 +97,7 @@ func (p *PostgreSQL) Run(ctx context.Context) {
 	}
 }
 
+//nolint:gocognit // pouet
 func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 	results, err := p.postgreSQLClient.QueryToMap(ctx, postgreSQLSelectMetricsLabelsQuery)
 	if err != nil {

@@ -31,6 +31,8 @@ func NewCheckDatabaseHealth(
 }
 
 func (c *CheckDatabaseHealth) Execute(ctx context.Context) error {
+	c.logger.Debug().Msg("Executing use case")
+
 	err := c.HealthChecker.CheckHealth(ctx)
 	if err != nil {
 		c.logger.Error().Err(err).Msg("database health check failed")

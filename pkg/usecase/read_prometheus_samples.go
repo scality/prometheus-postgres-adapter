@@ -2,12 +2,13 @@ package usecase
 
 import (
 	"context"
-	"prometheus-postgres-adapter/pkg/domain"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rs/zerolog"
+
+	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (
@@ -38,6 +39,8 @@ func NewReadPrometheusSamples(
 ) *ReadPrometheusSamples {
 	l := logger.With().Str("usecase", "read_samples").Logger()
 
+	logger.Debug().Msg("ReadPrometheusSamples initialized")
+
 	return &ReadPrometheusSamples{
 		logger:  &l,
 		builder: builder,
@@ -50,6 +53,8 @@ func (uc *ReadPrometheusSamples) Execute(
 	ctx context.Context,
 	req *domain.ReadRequest,
 ) (*domain.ReadResponse, error) {
+	uc.logger.Debug().Msg("Executing use case")
+
 	labelsToSeries := map[string]*prompb.TimeSeries{}
 
 	for _, query := range req.R.Queries {

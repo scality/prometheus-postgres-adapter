@@ -2,16 +2,17 @@ package di
 
 import (
 	"os"
-	"prometheus-postgres-adapter/cmd/config"
 
 	"github.com/rs/zerolog"
+
+	"prometheus-postgres-adapter/cmd/config"
 )
 
 func (c *Container) GetLogger() *zerolog.Logger {
 	if c.logger == nil {
 		logLevel, err := zerolog.ParseLevel(c.cfg.LoggerLogLevel)
 		if err != nil {
-			logLevel = zerolog.InfoLevel
+			logLevel = zerolog.DebugLevel
 		}
 
 		logger := zerolog.New(os.Stderr).
