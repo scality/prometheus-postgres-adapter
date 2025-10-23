@@ -21,10 +21,6 @@ const (
 		SELECT metric_id, metric_name_label, metric_labels
 		FROM metric_labels
 	`
-	postgreSQLGetNextMetricIDQuery = `
-		SELECT COALESCE(MAX(metric_id), 0) + 1 as next_id
-		FROM metric_labels
-	`
 	postgreSQLInsertMetricLabelQuery = `
 		INSERT INTO metric_labels (metric_id, metric_name, metric_name_label, metric_labels)
 		SELECT $1, $2, $3, $4
@@ -52,6 +48,8 @@ type (
 
 		// Mutex to protect metric ID generation from race conditions
 		metricIDMutex sync.Mutex
+		// In-memory counter for next metric ID to avoid race conditions
+		nextMetricID int64
 
 		ErrorChan chan ConcurrentError
 	}
@@ -98,11 +96,14 @@ func (p *PostgreSQL) Run(ctx context.Context) {
 	}
 }
 
+//nolint:gocognit // pouet
 func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 	results, err := p.postgreSQLClient.QueryToMap(ctx, postgreSQLSelectMetricsLabelsQuery)
 	if err != nil {
 		return errors.Wrap(err, "failed to query existing metrics")
 	}
+
+	var maxMetricID int64
 
 	for _, result := range results {
 		metricID, metricIDOk := result["metric_id"].(int64)
@@ -124,7 +125,15 @@ func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 		// Store the metric ID using the full metric string as key
 		// This ensures proper mapping during metric ingestion
 		p.syncMap.Store(metricNameLabel, metricID)
+
+		// Track the maximum metric ID for initializing the counter
+		if metricID > maxMetricID {
+			maxMetricID = metricID
+		}
 	}
+
+	// Initialize the next metric ID counter based on the max found in the database
+	p.nextMetricID = maxMetricID + 1
 
 	return nil
 }
@@ -249,44 +258,10 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 
 						id = existingID
 					} else {
-						// Generate new metric ID safely
-						nextIDResults, err := p.postgreSQLClient.QueryToMap(ctx, postgreSQLGetNextMetricIDQuery)
-						if err != nil {
-							p.metricIDMutex.Unlock()
-							p.ErrorChan <- ConcurrentError{
-								Err:       errors.Wrap(err, "failed to get next metric ID"),
-								Component: "Parser",
-							}
-
-							continue
-						}
-
-						if len(nextIDResults) == 0 {
-							p.metricIDMutex.Unlock()
-							p.ErrorChan <- ConcurrentError{
-								Err:       errors.New("no result from next metric ID query"),
-								Component: "Parser",
-							}
-
-							continue
-						}
-
-						nextID, ok := nextIDResults[0]["next_id"].(int64)
-						if !ok {
-							// Handle different possible integer types from database
-							nextIDInt, ok := nextIDResults[0]["next_id"].(int)
-							if !ok {
-								p.metricIDMutex.Unlock()
-								p.ErrorChan <- ConcurrentError{
-									Err:       errors.New("failed to cast next metric ID to int64"),
-									Component: "Parser",
-								}
-
-								continue
-							}
-
-							nextID = int64(nextIDInt)
-						}
+						// Generate new metric ID from in-memory counter (not database query)
+						// This prevents race conditions where multiple metrics get the same ID
+						nextID := p.nextMetricID
+						p.nextMetricID++ // Increment for next metric
 
 						// Store the metric ID in the sync map first to prevent duplicate processing
 						p.syncMap.Store(metricString, nextID)
@@ -295,7 +270,7 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 						index := strings.Index(metricString, "{")
 						jsonbMap := make(map[string]any)
 
-						err = json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
+						err := json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
 						if err != nil {
 							p.ErrorChan <- ConcurrentError{
 								Err:       errors.Wrap(err, "failed to unmarshal json"),
