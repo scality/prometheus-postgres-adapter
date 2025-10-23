@@ -2,11 +2,10 @@ package usecase
 
 import (
 	"context"
+	"prometheus-postgres-adapter/pkg/domain"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
-	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (
@@ -28,6 +27,7 @@ func NewPushPrometheusSamples(
 	l := logger.With().Str("usecase", "push_prometheus_samples").Logger()
 
 	logger.Debug().Msg("PushPrometheusSamples initialized")
+
 	return &PushPrometheusSamples{
 		logger:             &l,
 		messageQueuePusher: messageQueuePusher,

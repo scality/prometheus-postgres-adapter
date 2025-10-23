@@ -1,13 +1,12 @@
 package metricwriter
 
 import (
+	"prometheus-postgres-adapter/pkg/presentation/database"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/prometheus/common/model"
-
-	"prometheus-postgres-adapter/pkg/presentation/database"
 )
 
 func TestTransformToMetricString(t *testing.T) {
@@ -138,9 +137,11 @@ func TestDeduplicationLogic(t *testing.T) {
 
 		metricID := valueRow[0]
 		metricTime := valueRow[1]
-		key := time.Now().Format("2006-01-02 15:04:05")
-		_ = key  // Use a proper key format
-		key = "" // Reset for proper implementation
+
+		var key string
+
+		//nolint:ineffassign,staticcheck // Annoying linter
+		key = time.Now().Format("2006-01-02 15:04:05")
 
 		// Create a proper key
 		if ts, ok := metricTime.(time.Time); ok {
@@ -218,7 +219,7 @@ func TestToTimestamp(t *testing.T) {
 	}
 }
 
-// TestRegisterExistingMetrics validates that the metric ID counter is properly initialized
+// TestRegisterExistingMetrics validates that the metric ID counter is properly initialized.
 func TestRegisterExistingMetrics(t *testing.T) {
 	t.Parallel()
 
@@ -227,6 +228,7 @@ func TestRegisterExistingMetrics(t *testing.T) {
 
 		// Test the initialization logic directly (without full DB setup)
 		var maxMetricID int64
+
 		results := []map[string]any{}
 
 		for _, result := range results {
@@ -259,6 +261,7 @@ func TestRegisterExistingMetrics(t *testing.T) {
 		}
 
 		var maxMetricID int64
+
 		for _, result := range results {
 			metricID := result["metric_id"].(int64)
 			if metricID > maxMetricID {
@@ -275,7 +278,7 @@ func TestRegisterExistingMetrics(t *testing.T) {
 }
 
 // TestConcurrentMetricIDGeneration validates the critical fix:
-// Multiple goroutines processing different metrics should get unique IDs
+// Multiple goroutines processing different metrics should get unique IDs.
 func TestConcurrentMetricIDGeneration(t *testing.T) {
 	t.Parallel()
 
@@ -297,6 +300,7 @@ func TestConcurrentMetricIDGeneration(t *testing.T) {
 		metricString string
 		metricID     int64
 	}
+
 	resultsChan := make(chan metricIDPair, numGoroutines*metricsPerGoroutine)
 
 	var wg sync.WaitGroup
@@ -324,6 +328,7 @@ func TestConcurrentMetricIDGeneration(t *testing.T) {
 					// Double-check pattern
 					if existingID, exists := pg.syncMap.Load(metricString); exists {
 						pg.metricIDMutex.Unlock()
+
 						id = existingID
 					} else {
 						// This is the critical fix: use in-memory counter, not DB query
@@ -360,6 +365,7 @@ func TestConcurrentMetricIDGeneration(t *testing.T) {
 			t.Errorf("DUPLICATE METRIC ID DETECTED! ID %d assigned to both:\n  - %s\n  - %s",
 				result.metricID, existingMetric, result.metricString)
 		}
+
 		seenIDs[result.metricID] = result.metricString
 	}
 
@@ -376,14 +382,13 @@ func TestConcurrentMetricIDGeneration(t *testing.T) {
 	}
 }
 
-// TestSameMetricGetsSameID validates that the same metric always gets the same ID
+// TestSameMetricGetsSameID validates that the same metric always gets the same ID.
 func TestSameMetricGetsSameID(t *testing.T) {
 	t.Parallel()
 
 	pg := &PostgreSQL{
-		postgreSQLClient: (*database.PostgreSQL)(nil),
-		syncMap:          &sync.Map{},
-		nextMetricID:     1,
+		syncMap:      &sync.Map{},
+		nextMetricID: 1,
 	}
 
 	metric := model.Metric{
@@ -396,6 +401,7 @@ func TestSameMetricGetsSameID(t *testing.T) {
 
 	// Process the same metric multiple times
 	var ids []int64
+
 	for i := 0; i < 5; i++ {
 		id, ok := pg.syncMap.Load(metricString)
 		if !ok {
@@ -403,12 +409,14 @@ func TestSameMetricGetsSameID(t *testing.T) {
 
 			if existingID, exists := pg.syncMap.Load(metricString); exists {
 				pg.metricIDMutex.Unlock()
+
 				id = existingID
 			} else {
 				nextID := pg.nextMetricID
 				pg.nextMetricID++
 				pg.syncMap.Store(metricString, nextID)
 				pg.metricIDMutex.Unlock()
+
 				id = nextID
 			}
 		}
@@ -430,14 +438,13 @@ func TestSameMetricGetsSameID(t *testing.T) {
 	}
 }
 
-// TestDifferentMetricsGetDifferentIDs validates that different metrics get different IDs
+// TestDifferentMetricsGetDifferentIDs validates that different metrics get different IDs.
 func TestDifferentMetricsGetDifferentIDs(t *testing.T) {
 	t.Parallel()
 
 	pg := &PostgreSQL{
-		postgreSQLClient: (*database.PostgreSQL)(nil),
-		syncMap:          &sync.Map{},
-		nextMetricID:     1,
+		syncMap:      &sync.Map{},
+		nextMetricID: 1,
 	}
 
 	metrics := []model.Metric{
@@ -471,12 +478,14 @@ func TestDifferentMetricsGetDifferentIDs(t *testing.T) {
 
 			if existingID, exists := pg.syncMap.Load(metricString); exists {
 				pg.metricIDMutex.Unlock()
+
 				id = existingID
 			} else {
 				nextID := pg.nextMetricID
 				pg.nextMetricID++
 				pg.syncMap.Store(metricString, nextID)
 				pg.metricIDMutex.Unlock()
+
 				id = nextID
 			}
 		}
@@ -490,6 +499,7 @@ func TestDifferentMetricsGetDifferentIDs(t *testing.T) {
 		if seenIDs[id] {
 			t.Errorf("Duplicate ID %d found for metric %s", id, metricString)
 		}
+
 		seenIDs[id] = true
 	}
 

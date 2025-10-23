@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"prometheus-postgres-adapter/pkg/presentation/database"
+	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 	"sort"
 	"strings"
 	"sync"
@@ -11,9 +13,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
-
-	"prometheus-postgres-adapter/pkg/presentation/database"
-	"prometheus-postgres-adapter/pkg/presentation/messagequeue"
 )
 
 const (

@@ -3,15 +3,14 @@ package handler
 import (
 	"io"
 	"net/http"
+	"prometheus-postgres-adapter/pkg/domain"
+	"prometheus-postgres-adapter/pkg/usecase"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/rs/zerolog"
-
-	"prometheus-postgres-adapter/pkg/domain"
-	"prometheus-postgres-adapter/pkg/usecase"
 )
 
 type (
