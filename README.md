@@ -31,7 +31,7 @@ To build the Docker image manually, use the following command:
 ```bash
 docker build -t prometheus-postgres-adapter:local \
   --build-arg APPLICATION_VERSION=dev \
-  --build-arg BUILDER_IMAGE=golang:1.24 \
+  --build-arg BUILDER_IMAGE=golang:1.25 \
   --build-arg RUNNER_IMAGE=gcr.io/distroless/static-debian12 \
   .
 ```
@@ -41,7 +41,7 @@ docker build -t prometheus-postgres-adapter:local \
 | Argument | Description | Default |
 |----------|-------------|---------|
 | `APPLICATION_VERSION` | Version tag for the application | `dev` |
-| `BUILDER_IMAGE` | Base image used for building the application | `golang:1.24` |
+| `BUILDER_IMAGE` | Base image used for building the application | `golang:1.25` |
 | `RUNNER_IMAGE` | Base image for the final container | `gcr.io/distroless/static-debian12` |
 
 The build process uses a multi-stage build approach:
