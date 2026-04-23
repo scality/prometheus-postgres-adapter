@@ -1,11 +1,11 @@
 module prometheus-postgres-adapter
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/lib/pq v1.10.9
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.67.1
