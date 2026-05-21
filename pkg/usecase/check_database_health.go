@@ -33,7 +33,7 @@ func (c *CheckDatabaseHealth) Execute(ctx context.Context) error {
 
 	err := c.HealthChecker.CheckHealth(ctx)
 	if err != nil {
-		c.logger.ErrorContext(ctx, "database health check failed", slog.Any("error_message", err))
+		c.logger.ErrorContext(ctx, "database health check failed", slog.Any("error", err))
 
 		return errors.Wrap(err, "database health check failed")
 	}

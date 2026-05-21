@@ -29,7 +29,7 @@ func (h *Health) Handle() http.Handler {
 
 		err := h.uc.Execute(ctx)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to check database health", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to check database health", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return

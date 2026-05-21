@@ -43,14 +43,14 @@ func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 				"failed to read request body",
 				http.StatusInternalServerError,
 			)
-			h.logger.ErrorContext(ctx, "failed to read request body", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to read request body", slog.Any("error", err))
 
 			return
 		}
 
 		reqBuf, err := snappy.Decode(nil, body)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to decode request body", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to decode request body", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 
 			return
@@ -60,7 +60,7 @@ func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 
 		err = proto.Unmarshal(reqBuf, &req)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to unmarshal request body", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to unmarshal request body", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 
 			return
@@ -70,7 +70,7 @@ func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 
 		err = h.uc.Execute(ctx, samples)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to execute use case", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to execute use case", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return

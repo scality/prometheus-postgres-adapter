@@ -19,7 +19,7 @@ func (c *Container) GetPostgreSQLMetricWriter() *metricwriter.PostgreSQL {
 			c.GetLogger().ErrorContext(
 				c.ctx,
 				"failed to create postgresql metric writer",
-				slog.Any("error_message", err),
+				slog.Any("error", err),
 			)
 			os.Exit(1) //nolint:revive // Fatal-equivalent for DI initialization failure
 		}

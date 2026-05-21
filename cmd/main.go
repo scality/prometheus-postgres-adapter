@@ -52,7 +52,7 @@ func main() {
 		for concurrentError := range metricWriter.ErrorChan {
 			if concurrentError.Err != nil {
 				logger.ErrorContext(ctx, "Error in metric writer",
-					slog.Any("error_message", concurrentError.Err),
+					slog.Any("error", concurrentError.Err),
 					slog.String("component", concurrentError.Component),
 				)
 			}
@@ -62,7 +62,7 @@ func main() {
 	// Initialize and run the HTTP server
 	err = container.GetHTTPServer().ListenAndServe()
 	if err != nil {
-		logger.ErrorContext(ctx, "Failed to start HTTP server", slog.Any("error_message", err))
+		logger.ErrorContext(ctx, "Failed to start HTTP server", slog.Any("error", err))
 		os.Exit(1) //nolint:revive // Fatal-equivalent for HTTP server startup failure
 	}
 

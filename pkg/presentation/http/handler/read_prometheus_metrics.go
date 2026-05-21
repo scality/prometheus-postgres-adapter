@@ -37,14 +37,14 @@ func (h *ReadPrometheusMetrics) Handle() http.Handler {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "failed to read request body", http.StatusInternalServerError)
-			h.logger.ErrorContext(ctx, "failed to read request body", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to read request body", slog.Any("error", err))
 
 			return
 		}
 
 		reqBuf, err := snappy.Decode(nil, body)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to decode request body", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to decode request body", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 
 			return
@@ -53,7 +53,7 @@ func (h *ReadPrometheusMetrics) Handle() http.Handler {
 		var req prompb.ReadRequest
 
 		if err := proto.Unmarshal(reqBuf, &req); err != nil {
-			h.logger.ErrorContext(ctx, "failed to unmarshal request body", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to unmarshal request body", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 
 			return
@@ -65,7 +65,7 @@ func (h *ReadPrometheusMetrics) Handle() http.Handler {
 
 		resp, err := h.uc.Execute(ctx, &readRequest)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to execute use case", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to execute use case", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return
@@ -73,7 +73,7 @@ func (h *ReadPrometheusMetrics) Handle() http.Handler {
 
 		data, err := proto.Marshal(resp.R)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to marshal response", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to marshal response", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return
@@ -86,7 +86,7 @@ func (h *ReadPrometheusMetrics) Handle() http.Handler {
 
 		_, err = w.Write(encodedBody)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "failed to write response", slog.Any("error_message", err))
+			h.logger.ErrorContext(ctx, "failed to write response", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return

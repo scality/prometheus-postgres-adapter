@@ -42,7 +42,7 @@ func (c *Container) getPostgreSQLDatabase() *pgxpool.Pool {
 			c.GetLogger().ErrorContext(
 				c.ctx,
 				"failed to connect to postgres database",
-				slog.Any("error_message", err),
+				slog.Any("error", err),
 			)
 			os.Exit(1) //nolint:revive // Fatal-equivalent for DI initialization failure
 		}
