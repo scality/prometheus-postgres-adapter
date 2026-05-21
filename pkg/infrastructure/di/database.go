@@ -2,6 +2,8 @@ package di
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 	"prometheus-postgres-adapter/pkg/presentation/database"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,9 +37,14 @@ func (c *Container) getPostgreSQLDatabase() *pgxpool.Pool {
 			connectionString += fmt.Sprintf("?sslmode=%s", c.cfg.Database.SSLMode)
 		}
 
-		pool, err := pgxpool.New(c.baseCtx, connectionString)
+		pool, err := pgxpool.New(c.ctx, connectionString)
 		if err != nil {
-			c.GetLogger().Fatal().Err(err).Msg("failed to connect to postgres database")
+			c.GetLogger().ErrorContext(
+				c.ctx,
+				"failed to connect to postgres database",
+				slog.Any("error_message", err),
+			)
+			os.Exit(1) //nolint:revive // Fatal-equivalent for DI initialization failure
 		}
 
 		c.postgreSQLDatabaseConnexion = pool

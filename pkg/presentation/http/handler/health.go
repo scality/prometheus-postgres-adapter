@@ -1,38 +1,35 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"prometheus-postgres-adapter/pkg/usecase"
-
-	"github.com/rs/zerolog"
 )
 
 type Health struct {
 	uc     *usecase.CheckDatabaseHealth
-	logger *zerolog.Logger
+	logger *slog.Logger
 }
 
 func NewHealth(
 	uc *usecase.CheckDatabaseHealth,
-	logger *zerolog.Logger,
+	logger *slog.Logger,
 ) *Health {
-	l := logger.With().Str("handler", "health").Logger()
-
 	return &Health{
 		uc:     uc,
-		logger: &l,
+		logger: logger.With(slog.String("handler", "health")),
 	}
 }
 
 func (h *Health) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.logger.Info().Msg("handling request")
-
 		ctx := r.Context()
+
+		h.logger.InfoContext(ctx, "handling request")
 
 		err := h.uc.Execute(ctx)
 		if err != nil {
-			h.logger.Error().Err(err).Msg("failed to check database health")
+			h.logger.ErrorContext(ctx, "failed to check database health", slog.Any("error_message", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return
@@ -40,6 +37,6 @@ func (h *Health) Handle() http.Handler {
 
 		w.WriteHeader(http.StatusOK)
 
-		h.logger.Info().Msg("database health check passed")
+		h.logger.InfoContext(ctx, "database health check passed")
 	})
 }

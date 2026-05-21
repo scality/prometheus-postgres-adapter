@@ -1,29 +1,24 @@
 package di
 
 import (
+	"log/slog"
 	"os"
-
-	"github.com/rs/zerolog"
-
 	"prometheus-postgres-adapter/cmd/config"
 )
 
-func (c *Container) GetLogger() *zerolog.Logger {
+func (c *Container) GetLogger() *slog.Logger {
 	if c.logger == nil {
-		logLevel, err := zerolog.ParseLevel(c.cfg.LoggerLogLevel)
-		if err != nil {
-			logLevel = zerolog.InfoLevel
+		var level slog.Level
+		if err := level.UnmarshalText([]byte(c.cfg.LoggerLogLevel)); err != nil {
+			level = slog.LevelInfo
 		}
 
-		logger := zerolog.New(os.Stderr).
-			Level(logLevel).
-			With().
-			Timestamp().
-			Str("application_name", config.ApplicationName).
-			Str("application_version", config.ApplicationVersion).
-			Logger()
+		handler := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})
 
-		c.logger = &logger
+		c.logger = slog.New(handler).With(
+			slog.String("application_name", config.ApplicationName),
+			slog.String("application_version", config.ApplicationVersion),
+		)
 	}
 
 	return c.logger

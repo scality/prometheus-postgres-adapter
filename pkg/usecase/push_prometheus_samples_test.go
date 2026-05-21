@@ -2,12 +2,12 @@ package usecase_test
 
 import (
 	"context"
+	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +22,7 @@ func (m *MockMessageQueuePusher) Push(samples *domain.Samples) error {
 
 func TestPushPrometheusSamples_Execute(t *testing.T) {
 	// Create a test logger
-	logger := zerolog.New(zerolog.Nop())
+	logger := slog.New(slog.DiscardHandler)
 
 	t.Run("Successful push", func(t *testing.T) {
 		// Setup mock
@@ -33,7 +33,7 @@ func TestPushPrometheusSamples_Execute(t *testing.T) {
 		}
 
 		// Create usecase
-		uc := usecase.NewPushPrometheusSamples(&logger, mockPusher)
+		uc := usecase.NewPushPrometheusSamples(logger, mockPusher)
 
 		// Execute usecase
 		samples := &domain.Samples{}
@@ -52,7 +52,7 @@ func TestPushPrometheusSamples_Execute(t *testing.T) {
 		}
 
 		// Create usecase
-		uc := usecase.NewPushPrometheusSamples(&logger, mockPusher)
+		uc := usecase.NewPushPrometheusSamples(logger, mockPusher)
 
 		// Execute usecase
 		samples := &domain.Samples{}

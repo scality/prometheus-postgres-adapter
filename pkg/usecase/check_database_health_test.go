@@ -3,10 +3,10 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -22,7 +22,7 @@ func (m *MockHealthChecker) CheckHealth(ctx context.Context) error {
 
 func TestCheckDatabaseHealth_Execute(t *testing.T) {
 	// Create a test logger that doesn't output
-	logger := zerolog.New(zerolog.Nop())
+	logger := slog.New(slog.DiscardHandler)
 
 	t.Run("success case", func(t *testing.T) {
 		// Setup mock
@@ -30,7 +30,7 @@ func TestCheckDatabaseHealth_Execute(t *testing.T) {
 		healthChecker.On("CheckHealth", mock.Anything).Return(nil)
 
 		// Create usecase
-		uc := usecase.NewCheckDatabaseHealth(healthChecker, &logger)
+		uc := usecase.NewCheckDatabaseHealth(healthChecker, logger)
 
 		// Execute
 		err := uc.Execute(context.Background())
@@ -47,7 +47,7 @@ func TestCheckDatabaseHealth_Execute(t *testing.T) {
 		healthChecker.On("CheckHealth", mock.Anything).Return(mockError)
 
 		// Create usecase
-		uc := usecase.NewCheckDatabaseHealth(healthChecker, &logger)
+		uc := usecase.NewCheckDatabaseHealth(healthChecker, logger)
 
 		// Execute - the usecase should now return the error
 		err := uc.Execute(context.Background())

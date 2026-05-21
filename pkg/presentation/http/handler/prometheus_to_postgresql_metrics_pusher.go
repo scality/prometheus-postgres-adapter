@@ -2,6 +2,7 @@ package handler
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
@@ -10,31 +11,30 @@ import (
 	"github.com/golang/snappy"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
-	"github.com/rs/zerolog"
 )
 
 type (
 	PrometheusToPostgreSQLMetricsPusher struct {
 		uc     *usecase.PushPrometheusSamples
-		logger *zerolog.Logger
+		logger *slog.Logger
 	}
 )
 
 func NewPrometheusToPostgreSQLMetricsPusher(
 	uc *usecase.PushPrometheusSamples,
-	logger *zerolog.Logger,
+	logger *slog.Logger,
 ) *PrometheusToPostgreSQLMetricsPusher {
-	l := logger.With().Str("handler", "prometheus_to_postgresql_metrics_pusher").Logger()
-
 	return &PrometheusToPostgreSQLMetricsPusher{
 		uc:     uc,
-		logger: &l,
+		logger: logger.With(slog.String("handler", "prometheus_to_postgresql_metrics_pusher")),
 	}
 }
 
 func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.logger.Info().Msg("Handling request")
+		ctx := r.Context()
+
+		h.logger.InfoContext(ctx, "Handling request")
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -43,14 +43,14 @@ func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 				"failed to read request body",
 				http.StatusInternalServerError,
 			)
-			h.logger.Error().Err(err).Msg("failed to read request body")
+			h.logger.ErrorContext(ctx, "failed to read request body", slog.Any("error_message", err))
 
 			return
 		}
 
 		reqBuf, err := snappy.Decode(nil, body)
 		if err != nil {
-			h.logger.Error().Err(err).Msg("failed to decode request body")
+			h.logger.ErrorContext(ctx, "failed to decode request body", slog.Any("error_message", err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 
 			return
@@ -60,7 +60,7 @@ func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 
 		err = proto.Unmarshal(reqBuf, &req)
 		if err != nil {
-			h.logger.Error().Err(err).Msg("failed to unmarshal request body")
+			h.logger.ErrorContext(ctx, "failed to unmarshal request body", slog.Any("error_message", err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 
 			return
@@ -68,9 +68,9 @@ func (h *PrometheusToPostgreSQLMetricsPusher) Handle() http.Handler {
 
 		samples := protoToSamples(&req)
 
-		err = h.uc.Execute(r.Context(), samples)
+		err = h.uc.Execute(ctx, samples)
 		if err != nil {
-			h.logger.Error().Err(err).Msg("failed to execute use case")
+			h.logger.ErrorContext(ctx, "failed to execute use case", slog.Any("error_message", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 
 			return

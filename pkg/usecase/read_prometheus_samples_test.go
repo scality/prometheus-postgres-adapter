@@ -2,6 +2,7 @@ package usecase_test
 
 import (
 	"context"
+	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/prompb"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -39,7 +39,7 @@ func (m *MockSQLQuerier) QueryDatabaseSamples(ctx context.Context, query string,
 }
 
 func TestReadPrometheusSamples_Execute(t *testing.T) {
-	logger := zerolog.New(zerolog.Nop())
+	logger := slog.New(slog.DiscardHandler)
 
 	t.Run("successful query with multiple results", func(t *testing.T) {
 		// Setup mocks
@@ -94,7 +94,7 @@ func TestReadPrometheusSamples_Execute(t *testing.T) {
 		querier.On("QueryDatabaseSamples", mock.Anything, sqlQuery, mock.Anything).Return(sampleData, nil)
 
 		// Create the usecase
-		uc := usecase.NewReadPrometheusSamples(&logger, builder, querier)
+		uc := usecase.NewReadPrometheusSamples(logger, builder, querier)
 
 		// Test request
 		req := &domain.ReadRequest{
@@ -134,7 +134,7 @@ func TestReadPrometheusSamples_Execute(t *testing.T) {
 		builder.On("BuildSQLQuery", query).Return("", expectedErr)
 
 		// Create the usecase
-		uc := usecase.NewReadPrometheusSamples(&logger, builder, querier)
+		uc := usecase.NewReadPrometheusSamples(logger, builder, querier)
 
 		// Test request
 		req := &domain.ReadRequest{
@@ -170,7 +170,7 @@ func TestReadPrometheusSamples_Execute(t *testing.T) {
 		querier.On("QueryDatabaseSamples", mock.Anything, sqlQuery, mock.Anything).Return(nil, expectedErr)
 
 		// Create the usecase
-		uc := usecase.NewReadPrometheusSamples(&logger, builder, querier)
+		uc := usecase.NewReadPrometheusSamples(logger, builder, querier)
 
 		// Test request
 		req := &domain.ReadRequest{
@@ -206,7 +206,7 @@ func TestReadPrometheusSamples_Execute(t *testing.T) {
 		querier.On("QueryDatabaseSamples", mock.Anything, sqlQuery, mock.Anything).Return(emptyResult, nil)
 
 		// Create the usecase
-		uc := usecase.NewReadPrometheusSamples(&logger, builder, querier)
+		uc := usecase.NewReadPrometheusSamples(logger, builder, querier)
 
 		// Test request
 		req := &domain.ReadRequest{
@@ -293,7 +293,7 @@ func TestReadPrometheusSamples_Execute(t *testing.T) {
 		querier.On("QueryDatabaseSamples", mock.Anything, sqlQuery2, mock.Anything).Return(memorySamples, nil)
 
 		// Create the usecase
-		uc := usecase.NewReadPrometheusSamples(&logger, builder, querier)
+		uc := usecase.NewReadPrometheusSamples(logger, builder, querier)
 
 		// Test request
 		req := &domain.ReadRequest{
