@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"prometheus-postgres-adapter/cmd/config"
@@ -11,6 +11,15 @@ import (
 )
 
 func main() {
+	log.Printf(
+		"Starting %s@%s on %s (%s/%s)\n",
+		config.ApplicationName,
+		config.ApplicationVersion,
+		runtime.Version(),
+		runtime.GOOS,
+		runtime.GOARCH,
+	)
+
 	// Initialize the base context of the application.
 	// 	Every dependency will be able to use this context.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -19,8 +28,7 @@ func main() {
 	// Load configuration from environment variables.
 	cfg, err := config.NewEnvironment(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("failed to load config: %v", err)
 	}
 
 	// Initialize the container
@@ -29,11 +37,7 @@ func main() {
 	// Initialize the logger
 	logger := container.GetLogger()
 
-	logger.InfoContext(ctx, "Starting prometheus-postgres-adapter",
-		slog.String("go_version", runtime.Version()),
-		slog.String("os", runtime.GOOS),
-		slog.String("arch", runtime.GOARCH),
-	)
+	logger.InfoContext(ctx, "Starting prometheus-postgres-adapter")
 
 	// Initialize the parsing / writing components
 	metricWriter := container.GetPostgreSQLMetricWriter()
@@ -59,7 +63,7 @@ func main() {
 	err = container.GetHTTPServer().ListenAndServe()
 	if err != nil {
 		logger.ErrorContext(ctx, "Failed to start HTTP server", slog.Any("error_message", err))
-		os.Exit(1)
+		os.Exit(1) //nolint:revive // Fatal-equivalent for HTTP server startup failure
 	}
 
 	logger.InfoContext(ctx, "Stopping prometheus-postgres-adapter")
