@@ -2,6 +2,7 @@ package di
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/metricwriter"
@@ -11,13 +12,12 @@ import (
 	"prometheus-postgres-adapter/pkg/usecase"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog"
 )
 
 type Container struct {
-	baseCtx context.Context //nolint:containedctx // This context is important to for the DI
-	logger  *zerolog.Logger
-	cfg     *config.Environment
+	ctx    context.Context //nolint:containedctx // This context is important to for the DI
+	logger *slog.Logger
+	cfg    *config.Environment
 
 	// Low level components
 	httpServer                  *http.Server
@@ -42,7 +42,7 @@ type Container struct {
 
 func NewContainer(ctx context.Context, cfg *config.Environment) *Container {
 	return &Container{
-		baseCtx: ctx,
-		cfg:     cfg,
+		ctx: ctx,
+		cfg: cfg,
 	}
 }

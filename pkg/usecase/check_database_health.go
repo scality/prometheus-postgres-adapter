@@ -2,15 +2,15 @@ package usecase
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 )
 
 type (
 	CheckDatabaseHealth struct {
 		HealthChecker HealthChecker
-		logger        *zerolog.Logger
+		logger        *slog.Logger
 	}
 
 	HealthChecker interface {
@@ -20,22 +20,20 @@ type (
 
 func NewCheckDatabaseHealth(
 	healthChecker HealthChecker,
-	logger *zerolog.Logger,
+	logger *slog.Logger,
 ) *CheckDatabaseHealth {
-	l := logger.With().Str("usecase", "check_database_health").Logger()
-
 	return &CheckDatabaseHealth{
 		HealthChecker: healthChecker,
-		logger:        &l,
+		logger:        logger.With(slog.String("usecase", "check_database_health")),
 	}
 }
 
 func (c *CheckDatabaseHealth) Execute(ctx context.Context) error {
-	c.logger.Debug().Msg("Executing use case")
+	c.logger.DebugContext(ctx, "Executing use case")
 
 	err := c.HealthChecker.CheckHealth(ctx)
 	if err != nil {
-		c.logger.Error().Err(err).Msg("database health check failed")
+		c.logger.ErrorContext(ctx, "database health check failed", slog.Any("error", err))
 
 		return errors.Wrap(err, "database health check failed")
 	}

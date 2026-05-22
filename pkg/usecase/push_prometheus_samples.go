@@ -2,16 +2,15 @@ package usecase
 
 import (
 	"context"
+	"log/slog"
+	"prometheus-postgres-adapter/pkg/domain"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-
-	"prometheus-postgres-adapter/pkg/domain"
 )
 
 type (
 	PushPrometheusSamples struct {
-		logger *zerolog.Logger
+		logger *slog.Logger
 
 		messageQueuePusher messageQueuePusher
 	}
@@ -22,19 +21,17 @@ type (
 )
 
 func NewPushPrometheusSamples(
-	logger *zerolog.Logger,
+	logger *slog.Logger,
 	messageQueuePusher messageQueuePusher,
 ) *PushPrometheusSamples {
-	l := logger.With().Str("usecase", "push_prometheus_samples").Logger()
-
 	return &PushPrometheusSamples{
-		logger:             &l,
+		logger:             logger.With(slog.String("usecase", "push_prometheus_samples")),
 		messageQueuePusher: messageQueuePusher,
 	}
 }
 
-func (uc *PushPrometheusSamples) Execute(_ context.Context, samples *domain.Samples) error {
-	uc.logger.Debug().Msg("Executing use case")
+func (uc *PushPrometheusSamples) Execute(ctx context.Context, samples *domain.Samples) error {
+	uc.logger.DebugContext(ctx, "Executing use case")
 
 	err := uc.messageQueuePusher.Push(samples)
 	if err != nil {

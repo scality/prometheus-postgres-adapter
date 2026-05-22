@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
+	"os"
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/di"
 	"runtime"
@@ -35,7 +37,7 @@ func main() {
 	// Initialize the logger
 	logger := container.GetLogger()
 
-	logger.Info().Msg("Starting prometheus-postgres-adapter")
+	logger.InfoContext(ctx, "Starting prometheus-postgres-adapter")
 
 	// Initialize the parsing / writing components
 	metricWriter := container.GetPostgreSQLMetricWriter()
@@ -49,10 +51,10 @@ func main() {
 	go func() {
 		for concurrentError := range metricWriter.ErrorChan {
 			if concurrentError.Err != nil {
-				logger.Error().
-					Err(concurrentError.Err).
-					Str("component", concurrentError.Component).
-					Msg("Error in metric writer")
+				logger.ErrorContext(ctx, "Error in metric writer",
+					slog.Any("error", concurrentError.Err),
+					slog.String("component", concurrentError.Component),
+				)
 			}
 		}
 	}()
@@ -60,8 +62,9 @@ func main() {
 	// Initialize and run the HTTP server
 	err = container.GetHTTPServer().ListenAndServe()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start HTTP server")
+		logger.ErrorContext(ctx, "Failed to start HTTP server", slog.Any("error", err))
+		os.Exit(1) //nolint:revive // Fatal-equivalent for HTTP server startup failure
 	}
 
-	logger.Info().Msg("Stopping prometheus-postgres-adapter")
+	logger.InfoContext(ctx, "Stopping prometheus-postgres-adapter")
 }
