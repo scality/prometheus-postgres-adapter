@@ -31,6 +31,7 @@ const (
 	`
 
 	postgreSQLLabelRowLength = 4
+	metricIDKey              = "metric_id"
 )
 
 type (
@@ -106,10 +107,10 @@ func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 	var maxMetricID int64
 
 	for _, result := range results {
-		metricID, metricIDOk := result["metric_id"].(int64)
+		metricID, metricIDOk := result[metricIDKey].(int64)
 		if !metricIDOk {
 			// Handle different possible integer types from database
-			metricIDInt, ok := result["metric_id"].(int)
+			metricIDInt, ok := result[metricIDKey].(int)
 			if !ok {
 				return errors.New("failed to cast metric_id to int64")
 			}
@@ -210,7 +211,7 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 			ctx,
 			"metric_values",
 			[]string{
-				"metric_id",
+				metricIDKey,
 				"metric_time",
 				"metric_value",
 			},
