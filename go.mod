@@ -1,15 +1,15 @@
 module prometheus-postgres-adapter
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/jackc/pgx/v5 v5.7.6
-	github.com/lib/pq v1.10.9
+	github.com/jackc/pgx/v5 v5.9.2
+	github.com/lib/pq v1.12.3
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/common v0.67.1
-	github.com/prometheus/prometheus v0.306.0
+	github.com/prometheus/common v0.67.5
+	github.com/prometheus/prometheus v0.311.3
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -26,10 +26,9 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
-	google.golang.org/protobuf v1.36.10 // indirect
+	go.yaml.in/yaml/v2 v2.4.4 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
