@@ -9,7 +9,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.67.5
-	github.com/prometheus/prometheus v0.311.3
+	github.com/prometheus/prometheus v0.312.0
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/stretchr/testify v1.11.1
 )
