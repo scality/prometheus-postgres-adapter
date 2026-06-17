@@ -12,6 +12,7 @@ This adapter implements the Prometheus remote read/write API, enabling long-term
 
 - Store Prometheus metrics in PostgreSQL
 - Support for Prometheus remote write/read API
+- Thanos StoreAPI (gRPC) endpoint to query stored data directly from Thanos
 - Configurable metrics concurrent parser / writer
 
 ## Installation
@@ -127,6 +128,49 @@ remote_write:
 [Refer to the Prometheus documentation](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write)
 to further customize Prometheus' remote writing capabilities
 
+### Thanos Integration (StoreAPI)
+
+In addition to the Prometheus `remote_read` endpoint, the adapter exposes a Thanos
+**StoreAPI** over gRPC (`GRPC_ADDR`, default `:10901`). This lets Thanos Query read
+the long-term data stored in PostgreSQL **directly**, without relying on a Prometheus
+`remote_read` passthrough behind a Thanos sidecar.
+
+Register the adapter as a StoreAPI endpoint on Thanos Query:
+
+```bash
+thanos query \
+  --endpoint=dns+postgresql-prometheus-adapter.<namespace>.svc:10901 \
+  ...
+```
+
+Through the StoreAPI `Info` call, the adapter advertises:
+
+- a time range whose minimum is the oldest sample in the database (when the database
+  is empty the minimum is set so that Thanos skips the store);
+- the external labels configured via `STORE_API_EXTERNAL_LABELS`.
+
+These external labels are applied (with precedence on name collision) to every series
+the adapter returns, mirroring how a Thanos sidecar applies a Prometheus' external
+labels. Configure a label that identifies this store, e.g.
+`STORE_API_EXTERNAL_LABELS=source:postgres-adapter`, so queries can isolate
+adapter-served data with `source="postgres-adapter"`.
+
+A Kubernetes Service must expose the gRPC port:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-prometheus-adapter-grpc
+spec:
+  selector:
+    app: postgresql-prometheus-adapter
+  ports:
+    - name: grpc
+      port: 10901
+      targetPort: 10901
+```
+
 ### Adapter Configuration
 
 The adapter can be configured using environment variables:
@@ -145,6 +189,12 @@ POSTGRESQL_DATABASE_SSL_MODE=disable         # SSL mode (disable, require, verif
 #### HTTP Server
 ```bash
 HTTP_PORT=9201                    # Port for the HTTP server
+```
+
+#### gRPC StoreAPI Server
+```bash
+GRPC_ADDR=:10901                  # Listen address for the gRPC Thanos StoreAPI server
+STORE_API_EXTERNAL_LABELS=source:postgres-adapter  # External labels advertised to Thanos (key:value,key:value)
 ```
 
 #### Processing settings
