@@ -4,10 +4,21 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"net"
 	"os"
+	"os/signal"
 	"prometheus-postgres-adapter/cmd/config"
 	"prometheus-postgres-adapter/pkg/infrastructure/di"
 	"runtime"
+	"syscall"
+	"time"
+
+	"github.com/pkg/errors"
+)
+
+const (
+	shutdownTimeout = 10 * time.Second
+	serverCount     = 2 // HTTP + gRPC
 )
 
 func main() {
@@ -20,10 +31,9 @@ func main() {
 		runtime.GOARCH,
 	)
 
-	// Initialize the base context of the application.
-	// 	Every dependency will be able to use this context.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// The context is cancelled on SIGINT/SIGTERM, which triggers graceful shutdown.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	// Load configuration from environment variables.
 	cfg, err := config.NewEnvironment(ctx)
@@ -31,23 +41,18 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	// Initialize the container
 	container := di.NewContainer(ctx, cfg)
-
-	// Initialize the logger
 	logger := container.GetLogger()
 
 	logger.InfoContext(ctx, "Starting prometheus-postgres-adapter")
 
-	// Initialize the parsing / writing components
+	// Run the parsing / writing goroutines.
 	metricWriter := container.GetPostgreSQLMetricWriter()
-
-	// Run the parsing / writing goroutines
 	metricWriter.Run(ctx)
 
-	// Run the error logging goroutine
-	// This goroutine will log any error that occurs in any of the
-	// parsing / writing goroutines
+	// Run the error logging goroutine.
+	// This goroutine logs any error that occurs in any of the parsing / writing
+	// goroutines.
 	go func() {
 		for concurrentError := range metricWriter.ErrorChan {
 			if concurrentError.Err != nil {
@@ -59,12 +64,58 @@ func main() {
 		}
 	}()
 
-	// Initialize and run the HTTP server
-	err = container.GetHTTPServer().ListenAndServe()
-	if err != nil {
-		logger.ErrorContext(ctx, "Failed to start HTTP server", slog.Any("error", err))
-		os.Exit(1) //nolint:revive // Fatal-equivalent for HTTP server startup failure
+	if err := serve(ctx, logger, container, cfg); err != nil {
+		logger.ErrorContext(ctx, "Server error", slog.Any("error", err))
+		os.Exit(1) //nolint:revive // Fatal-equivalent for server failure
 	}
 
 	logger.InfoContext(ctx, "Stopping prometheus-postgres-adapter")
+}
+
+// serve starts the HTTP and gRPC servers, waits for a shutdown signal or a fatal
+// server error, then gracefully stops both servers.
+func serve(
+	ctx context.Context,
+	logger *slog.Logger,
+	container *di.Container,
+	cfg *config.Environment,
+) error {
+	grpcListener, err := net.Listen("tcp", cfg.GRPC.Addr)
+	if err != nil {
+		return errors.Wrap(err, "failed to listen for gRPC")
+	}
+
+	httpServer := container.GetHTTPServer()
+	grpcServer := container.GetGRPCServer()
+
+	serverErrors := make(chan error, serverCount)
+
+	go func() {
+		logger.InfoContext(ctx, "Starting HTTP server", slog.String("address", cfg.HTTP.Addr))
+		serverErrors <- httpServer.ListenAndServe()
+	}()
+
+	go func() {
+		logger.InfoContext(ctx, "Starting gRPC StoreAPI server", slog.String("address", cfg.GRPC.Addr))
+		serverErrors <- grpcServer.Serve(grpcListener)
+	}()
+
+	select {
+	case <-ctx.Done():
+		logger.InfoContext(ctx, "Shutdown signal received, stopping servers")
+	case err := <-serverErrors:
+		return errors.Wrap(err, "server stopped unexpectedly")
+	}
+
+	grpcServer.GracefulStop()
+
+	// Detach from the (already cancelled) signal context so the timeout applies.
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+	defer cancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		return errors.Wrap(err, "failed to shut down HTTP server")
+	}
+
+	return nil
 }
