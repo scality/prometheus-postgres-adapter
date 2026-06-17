@@ -60,6 +60,10 @@ func (uc *ReadPrometheusSamples) Execute(
 	labelsToSeries := map[string]*prompb.TimeSeries{}
 
 	for _, query := range req.R.Queries {
+		uc.logger.DebugContext(ctx, "received read query",
+			slog.String("query", query.String()),
+		)
+
 		// Build the SQL query according to the Prometheus query
 		sqlQuery, err := uc.builder.BuildSQLQuery(query)
 		if err != nil {

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 	"time"
 
@@ -67,7 +68,8 @@ const (
 
 type (
 	PostgreSQL struct {
-		db database
+		logger *slog.Logger
+		db     database
 	}
 
 	database interface {
@@ -79,9 +81,10 @@ type (
 	}
 )
 
-func NewPostgreSQL(db database) *PostgreSQL {
+func NewPostgreSQL(logger *slog.Logger, db database) *PostgreSQL {
 	return &PostgreSQL{
-		db: db,
+		logger: logger.With(slog.String("component", "database")),
+		db:     db,
 	}
 }
 
@@ -91,11 +94,21 @@ func (p *PostgreSQL) Close() error {
 	return nil
 }
 
+// logQuery logs an executed SQL statement and its arguments at debug level.
+func (p *PostgreSQL) logQuery(ctx context.Context, query string, args ...any) {
+	p.logger.DebugContext(ctx, "executing query",
+		slog.String("query", query),
+		slog.Any("args", args),
+	)
+}
+
 func (p *PostgreSQL) QueryToMap(
 	ctx context.Context,
 	query string,
 	args ...any,
 ) ([]map[string]any, error) {
+	p.logQuery(ctx, query, args...)
+
 	rows, err := p.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.Wrap(ErrExecuteQuery, errors.CausedBy(err))
@@ -114,6 +127,8 @@ func (p *PostgreSQL) QueryDatabaseSamples(
 	query string,
 	args ...any,
 ) ([]*domain.SamplesReadFromDatabase, error) {
+	p.logQuery(ctx, query, args...)
+
 	rows, err := p.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.Wrap(ErrExecuteQuery, errors.CausedBy(err))
@@ -156,6 +171,11 @@ func (p *PostgreSQL) CopyRows(
 	columnNames []string,
 	rows [][]any,
 ) error {
+	p.logger.DebugContext(ctx, "copying rows",
+		slog.String("table", tableName),
+		slog.Int("rows", len(rows)),
+	)
+
 	transaction, err := p.db.Begin(ctx)
 	if err != nil {
 		return errors.Wrap(ErrBeginTransaction, errors.CausedBy(err))
@@ -187,6 +207,8 @@ func (p *PostgreSQL) CopyRows(
 // MinSampleTimestamp returns the oldest sample timestamp in milliseconds. The
 // boolean is false when the database holds no samples.
 func (p *PostgreSQL) MinSampleTimestamp(ctx context.Context) (int64, bool, error) {
+	p.logQuery(ctx, minSampleTimestampQuery)
+
 	rows, err := p.db.Query(ctx, minSampleTimestampQuery)
 	if err != nil {
 		return 0, false, errors.Wrap(ErrQueryMinTimestamp, errors.CausedBy(err))
@@ -208,6 +230,8 @@ func (p *PostgreSQL) MinSampleTimestamp(ctx context.Context) (int64, bool, error
 // the metric name. It returns a superset (matchers and time range are not
 // applied), which the Thanos StoreAPI permits.
 func (p *PostgreSQL) LabelNames(ctx context.Context) ([]string, error) {
+	p.logQuery(ctx, labelNamesQuery)
+
 	rows, err := p.db.Query(ctx, labelNamesQuery)
 	if err != nil {
 		return nil, errors.Wrap(ErrQueryLabelNames, errors.CausedBy(err))
@@ -233,6 +257,8 @@ func (p *PostgreSQL) LabelValues(ctx context.Context, label string) ([]string, e
 		args = nil
 	}
 
+	p.logQuery(ctx, query, args...)
+
 	rows, err := p.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, errors.Wrap(ErrQueryLabelValues, errors.CausedBy(err))
@@ -256,6 +282,8 @@ func (p *PostgreSQL) CheckHealth(ctx context.Context) error {
 }
 
 func (p *PostgreSQL) Exec(ctx context.Context, query string, args ...any) error {
+	p.logQuery(ctx, query, args...)
+
 	_, err := p.db.Exec(ctx, query, args...)
 	if err != nil {
 		return errors.Wrap(ErrExecuteQuery, errors.CausedBy(err))

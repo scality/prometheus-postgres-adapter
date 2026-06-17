@@ -24,6 +24,7 @@ func (c *Container) GetGRPCServer() *grpc.Server {
 		)
 
 		storeServer := storeapi.NewServer(
+			logger,
 			c.getSQLQueryBuilder(),
 			c.getPostgreSQLClient(),
 			c.cfg.StoreAPI.ExternalLabels,

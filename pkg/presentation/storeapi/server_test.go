@@ -2,6 +2,8 @@ package storeapi_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"math"
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/presentation/storeapi"
@@ -61,7 +63,9 @@ func (f *fakeSeriesServer) Send(response *storepb.SeriesResponse) error {
 }
 
 func newTestServer(querier storeapi.Querier, externalLabels map[string]string) *storeapi.Server {
-	return storeapi.NewServer(mockBuilder{}, querier, externalLabels)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	return storeapi.NewServer(logger, mockBuilder{}, querier, externalLabels)
 }
 
 func TestServer_Info(t *testing.T) {

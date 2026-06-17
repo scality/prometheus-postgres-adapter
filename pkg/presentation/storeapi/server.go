@@ -2,6 +2,7 @@ package storeapi
 
 import (
 	"context"
+	"log/slog"
 	"math"
 	"prometheus-postgres-adapter/pkg/domain"
 	"sort"
@@ -45,6 +46,7 @@ type (
 	// (infopb.InfoServer) on top of the PostgreSQL adapter. Errors are returned
 	// as gRPC status errors and logged once by the server's logging interceptor.
 	Server struct {
+		logger         *slog.Logger
 		builder        QueryBuilder
 		querier        Querier
 		externalLabels map[string]string
@@ -56,8 +58,14 @@ var (
 	_ infopb.InfoServer   = (*Server)(nil)
 )
 
-func NewServer(builder QueryBuilder, querier Querier, externalLabels map[string]string) *Server {
+func NewServer(
+	logger *slog.Logger,
+	builder QueryBuilder,
+	querier Querier,
+	externalLabels map[string]string,
+) *Server {
 	return &Server{
+		logger:         logger.With(slog.String("component", "storeapi")),
 		builder:        builder,
 		querier:        querier,
 		externalLabels: externalLabels,
@@ -90,6 +98,13 @@ func (s *Server) Info(ctx context.Context, _ *infopb.InfoRequest) (*infopb.InfoR
 // Series streams the samples matching the request, encoded as XOR chunks.
 func (s *Server) Series(req *storepb.SeriesRequest, srv storepb.Store_SeriesServer) error {
 	ctx := srv.Context()
+
+	s.logger.DebugContext(ctx, "received series request",
+		slog.String("matchers", storepb.MatchersToString(req.Matchers...)),
+		slog.Int64("min_time", req.MinTime),
+		slog.Int64("max_time", req.MaxTime),
+		slog.Bool("skip_chunks", req.SkipChunks),
+	)
 
 	query, matched, err := PromQueryFromSeriesRequest(req, s.externalLabels)
 	if err != nil {
@@ -133,8 +148,14 @@ func (s *Server) Series(req *storepb.SeriesRequest, srv storepb.Store_SeriesServ
 // LabelNames returns the label names available in the store.
 func (s *Server) LabelNames(
 	ctx context.Context,
-	_ *storepb.LabelNamesRequest,
+	req *storepb.LabelNamesRequest,
 ) (*storepb.LabelNamesResponse, error) {
+	s.logger.DebugContext(ctx, "received label names request",
+		slog.String("matchers", storepb.MatchersToString(req.Matchers...)),
+		slog.Int64("min_time", req.Start),
+		slog.Int64("max_time", req.End),
+	)
+
 	names, err := s.querier.LabelNames(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get label names: %v", err)
@@ -165,6 +186,13 @@ func (s *Server) LabelValues(
 	ctx context.Context,
 	req *storepb.LabelValuesRequest,
 ) (*storepb.LabelValuesResponse, error) {
+	s.logger.DebugContext(ctx, "received label values request",
+		slog.String("label", req.Label),
+		slog.String("matchers", storepb.MatchersToString(req.Matchers...)),
+		slog.Int64("min_time", req.Start),
+		slog.Int64("max_time", req.End),
+	)
+
 	if value, ok := s.externalLabels[req.Label]; ok {
 		return &storepb.LabelValuesResponse{Values: []string{value}}, nil
 	}

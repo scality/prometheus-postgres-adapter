@@ -15,6 +15,7 @@ const postgresConnexionString = "postgresql://%s:%s@%s:%d/%s"
 func (c *Container) getPostgreSQLClient() *database.PostgreSQL {
 	if c.postgreSQLClient == nil {
 		c.postgreSQLClient = database.NewPostgreSQL(
+			c.GetLogger(),
 			c.getPostgreSQLDatabase(),
 		)
 	}
