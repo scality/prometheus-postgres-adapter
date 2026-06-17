@@ -23,6 +23,8 @@ type (
 		LoggerLogLevel string `env:"LOGGER_LOG_LEVEL, default=info"`
 
 		HTTP     HTTP       `env:",prefix=HTTP_"`
+		GRPC     GRPC       `env:",prefix=GRPC_"`
+		StoreAPI StoreAPI   `env:",prefix=STORE_API_"`
 		Database PostgreSQL `env:",prefix=POSTGRESQL_DATABASE_"`
 
 		MetricParserCount int `env:"METRIC_PARSER_COUNT, default=1"`
@@ -40,6 +42,16 @@ type (
 
 	HTTP struct {
 		Addr string `env:"ADDR, default=:9201"`
+	}
+
+	GRPC struct {
+		Addr string `env:"ADDR, default=:10901"`
+	}
+
+	StoreAPI struct {
+		// ExternalLabels are advertised to Thanos via the StoreAPI Info call and
+		// used for deduplication. Format: "key1:value1,key2:value2".
+		ExternalLabels map[string]string `env:"EXTERNAL_LABELS"`
 	}
 )
 
