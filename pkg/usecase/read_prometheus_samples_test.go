@@ -2,13 +2,13 @@ package usecase_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -149,7 +149,7 @@ func TestReadPrometheusSamples_Execute(t *testing.T) {
 		// Assertions
 		assert.Error(t, err)
 		assert.Nil(t, resp)
-		assert.Contains(t, err.Error(), "failed to build SQL query")
+		assert.Contains(t, err.Error(), "failed to build sql query")
 
 		// Verify builder was called correctly
 		builder.AssertExpectations(t)

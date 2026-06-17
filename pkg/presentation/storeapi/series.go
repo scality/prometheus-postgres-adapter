@@ -5,13 +5,16 @@ import (
 	"prometheus-postgres-adapter/pkg/domain"
 	"sort"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
+	"github.com/scality/go-errors"
 	"github.com/thanos-io/thanos/pkg/store/labelpb"
 	"github.com/thanos-io/thanos/pkg/store/storepb"
 )
+
+// ErrCreateXORChunkAppender is returned when an XOR chunk appender cannot be created.
+var ErrCreateXORChunkAppender = errors.New("failed to create XOR chunk appender")
 
 // maxSamplesPerChunk matches Prometheus' convention for the maximum number of
 // samples encoded in a single XOR chunk.
@@ -140,7 +143,7 @@ func encodeXORChunks(samples []sample) ([]storepb.AggrChunk, error) {
 
 		appender, err := chunk.Appender()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create XOR chunk appender")
+			return nil, errors.Wrap(ErrCreateXORChunkAppender, errors.CausedBy(err))
 		}
 
 		for _, s := range batch {

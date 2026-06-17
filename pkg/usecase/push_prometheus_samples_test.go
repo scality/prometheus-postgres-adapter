@@ -2,12 +2,12 @@ package usecase_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 	"prometheus-postgres-adapter/pkg/usecase"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 

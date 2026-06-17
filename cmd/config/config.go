@@ -9,9 +9,12 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/scality/go-errors"
 	"github.com/sethvargo/go-envconfig"
 )
+
+// ErrProcessEnv is returned when environment variables cannot be processed.
+var ErrProcessEnv = errors.New("failed to process environment variables")
 
 const ApplicationName = "prometheus-postgres-adapter"
 
@@ -60,7 +63,7 @@ func NewEnvironment(ctx context.Context) (*Environment, error) {
 
 	err := envconfig.Process(ctx, cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to process environment variables")
+		return nil, errors.Wrap(ErrProcessEnv, errors.CausedBy(err))
 	}
 
 	fmt.Println(ToString(cfg))

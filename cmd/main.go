@@ -13,12 +13,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/scality/go-errors"
 )
 
 const (
 	shutdownTimeout = 10 * time.Second
 	serverCount     = 2 // HTTP + gRPC
+)
+
+var (
+	// ErrListenGRPC is returned when the gRPC listener cannot be created.
+	ErrListenGRPC = errors.New("failed to listen for gRPC")
+	// ErrServerStopped is returned when a server stops before a shutdown signal.
+	ErrServerStopped = errors.New("server stopped unexpectedly")
+	// ErrShutdownHTTP is returned when the HTTP server fails to shut down gracefully.
+	ErrShutdownHTTP = errors.New("failed to shut down HTTP server")
 )
 
 func main() {
@@ -82,7 +91,7 @@ func serve(
 ) error {
 	grpcListener, err := net.Listen("tcp", cfg.GRPC.Addr)
 	if err != nil {
-		return errors.Wrap(err, "failed to listen for gRPC")
+		return errors.Wrap(ErrListenGRPC, errors.CausedBy(err))
 	}
 
 	httpServer := container.GetHTTPServer()
@@ -104,7 +113,7 @@ func serve(
 	case <-ctx.Done():
 		logger.InfoContext(ctx, "Shutdown signal received, stopping servers")
 	case err := <-serverErrors:
-		return errors.Wrap(err, "server stopped unexpectedly")
+		return errors.Wrap(ErrServerStopped, errors.CausedBy(err))
 	}
 
 	grpcServer.GracefulStop()
@@ -114,7 +123,7 @@ func serve(
 	defer cancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		return errors.Wrap(err, "failed to shut down HTTP server")
+		return errors.Wrap(ErrShutdownHTTP, errors.CausedBy(err))
 	}
 
 	return nil

@@ -4,8 +4,11 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/pkg/errors"
+	"github.com/scality/go-errors"
 )
+
+// ErrDatabaseHealthCheck is returned when the database health check fails.
+var ErrDatabaseHealthCheck = errors.New("database health check failed")
 
 type (
 	CheckDatabaseHealth struct {
@@ -35,7 +38,7 @@ func (c *CheckDatabaseHealth) Execute(ctx context.Context) error {
 	if err != nil {
 		c.logger.ErrorContext(ctx, "database health check failed", slog.Any("error", err))
 
-		return errors.Wrap(err, "database health check failed")
+		return errors.Wrap(ErrDatabaseHealthCheck, errors.CausedBy(err))
 	}
 
 	return nil

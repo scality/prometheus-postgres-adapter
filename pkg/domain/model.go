@@ -2,13 +2,21 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
+	"github.com/scality/go-errors"
+)
+
+var (
+	// ErrInvalidLabelsType is returned when a labels value has an unexpected type.
+	ErrInvalidLabelsType = errors.New("invalid type for labels")
+	// ErrUnmarshalLabels is returned when labels cannot be unmarshalled from JSON.
+	ErrUnmarshalLabels = errors.New("failed to unmarshal labels")
 )
 
 type (
@@ -60,14 +68,14 @@ func (l *SampleLabels) Scan(value any) error {
 	case string:
 		t = []byte(v)
 	default:
-		return errors.Errorf("invalid type for labels: %T", value)
+		return errors.Wrap(ErrInvalidLabelsType, errors.WithProperty("type", fmt.Sprintf("%T", value)))
 	}
 
 	m := make(map[string]string)
 
 	err := json.Unmarshal(t, &m)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal labels")
+		return errors.Wrap(ErrUnmarshalLabels, errors.CausedBy(err))
 	}
 
 	*l = SampleLabels{

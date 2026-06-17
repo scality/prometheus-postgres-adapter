@@ -4,10 +4,13 @@
 package storeapi
 
 import (
-	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/prompb"
+	"github.com/scality/go-errors"
 	"github.com/thanos-io/thanos/pkg/store/storepb"
 )
+
+// ErrUnsupportedLabelMatcherType is returned for an unsupported StoreAPI label matcher type.
+var ErrUnsupportedLabelMatcherType = errors.New("unsupported label matcher type")
 
 //nolint:gochecknoglobals // Static lookup table for matcher type translation.
 var matcherTypeToProm = map[storepb.LabelMatcher_Type]prompb.LabelMatcher_Type{
@@ -48,7 +51,7 @@ func PromQueryFromSeriesRequest(
 
 		promType, ok := matcherTypeToProm[m.Type]
 		if !ok {
-			return nil, false, errors.Errorf("unsupported label matcher type %v", m.Type)
+			return nil, false, errors.Wrap(ErrUnsupportedLabelMatcherType, errors.WithProperty("type", m.Type))
 		}
 
 		matchers = append(matchers, &prompb.LabelMatcher{
@@ -70,7 +73,7 @@ func PromQueryFromSeriesRequest(
 func externalLabelMatches(matcher storepb.LabelMatcher, value string) (bool, error) {
 	promMatchers, err := storepb.MatchersToPromMatchers(matcher)
 	if err != nil {
-		return false, errors.Wrap(err, "unsupported label matcher type")
+		return false, errors.Wrap(ErrUnsupportedLabelMatcherType, errors.CausedBy(err))
 	}
 
 	return promMatchers[0].Matches(value), nil

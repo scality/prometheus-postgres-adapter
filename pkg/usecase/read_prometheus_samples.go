@@ -5,9 +5,16 @@ import (
 	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
+	"github.com/scality/go-errors"
+)
+
+var (
+	// ErrBuildSQLQuery is returned when the SQL query cannot be built from a Prometheus query.
+	ErrBuildSQLQuery = errors.New("failed to build SQL query")
+	// ErrQueryRows is returned when the database query for samples fails.
+	ErrQueryRows = errors.New("failed to query rows")
 )
 
 type (
@@ -56,13 +63,13 @@ func (uc *ReadPrometheusSamples) Execute(
 		// Build the SQL query according to the Prometheus query
 		sqlQuery, err := uc.builder.BuildSQLQuery(query)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to build SQL query")
+			return nil, errors.Wrap(ErrBuildSQLQuery, errors.CausedBy(err))
 		}
 
 		// Query the database
 		samples, err := uc.querier.QueryDatabaseSamples(ctx, sqlQuery)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to query rows")
+			return nil, errors.Wrap(ErrQueryRows, errors.CausedBy(err))
 		}
 
 		for _, sample := range samples {

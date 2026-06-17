@@ -6,16 +6,19 @@ import (
 	"prometheus-postgres-adapter/pkg/domain"
 	"sort"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/prompb"
+	"github.com/scality/go-errors"
 	"github.com/thanos-io/thanos/pkg/info/infopb"
 	"github.com/thanos-io/thanos/pkg/store/labelpb"
 	"github.com/thanos-io/thanos/pkg/store/storepb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// ErrSendSeriesResponse is returned when a series response cannot be sent to the client.
+var ErrSendSeriesResponse = errors.New("failed to send series response")
 
 // componentType is the Thanos component type advertised through the Info API.
 const componentType = "store"
@@ -120,7 +123,7 @@ func (s *Server) Series(req *storepb.SeriesRequest, srv storepb.Store_SeriesServ
 		}
 
 		if err := srv.Send(storepb.NewSeriesResponse(&current)); err != nil {
-			return errors.Wrap(err, "failed to send series response")
+			return errors.Wrap(ErrSendSeriesResponse, errors.CausedBy(err))
 		}
 	}
 
