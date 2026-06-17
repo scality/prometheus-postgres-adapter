@@ -101,11 +101,13 @@ func serve(
 
 	go func() {
 		logger.InfoContext(ctx, "Starting HTTP server", slog.String("address", cfg.HTTP.Addr))
+
 		serverErrors <- httpServer.ListenAndServe()
 	}()
 
 	go func() {
 		logger.InfoContext(ctx, "Starting gRPC StoreAPI server", slog.String("address", cfg.GRPC.Addr))
+
 		serverErrors <- grpcServer.Serve(grpcListener)
 	}()
 

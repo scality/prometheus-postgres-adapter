@@ -62,6 +62,7 @@ func (l *SampleLabels) Scan(value any) error {
 	//   "prometheus_replica": "prometheus-prometheus-operator-prometheus-0",
 	// }
 	var t []byte
+
 	switch v := value.(type) {
 	case []uint8:
 		t = v

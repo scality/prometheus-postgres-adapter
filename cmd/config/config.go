@@ -76,7 +76,7 @@ func ToString(src any) string {
 
 	writer := tabwriter.NewWriter(b, 0, 0, 1, ' ', tabwriter.Debug)
 	write(writer, src, 0)
-	writer.Flush()
+	_ = writer.Flush()
 
 	return b.String()
 }
@@ -104,7 +104,7 @@ func write(writer io.Writer, src any, level int) {
 		typeField := value.Type().Field(i)
 
 		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(time.Time{}) {
-			fmt.Fprintf(writer, "%s%s:\t\t\n", prefix, typeField.Name)
+			_, _ = fmt.Fprintf(writer, "%s%s:\t\t\n", prefix, typeField.Name)
 			write(writer, field.Interface(), level+1)
 
 			continue
@@ -115,6 +115,6 @@ func write(writer io.Writer, src any, level int) {
 			val = "********"
 		}
 
-		fmt.Fprintf(writer, "%s%s\t %v\t %s\n", prefix, typeField.Name, val, field.Type().String())
+		_, _ = fmt.Fprintf(writer, "%s%s\t %v\t %s\n", prefix, typeField.Name, val, field.Type().String())
 	}
 }
