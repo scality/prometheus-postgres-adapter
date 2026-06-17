@@ -8,6 +8,30 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
+	"github.com/prometheus/common/model"
+)
+
+const (
+	minSampleTimestampQuery = `
+		SELECT COALESCE(EXTRACT(EPOCH FROM MIN(metric_time)) * 1000, -1)::bigint
+		FROM metric_values`
+
+	labelNamesQuery = `
+		SELECT DISTINCT key
+		FROM metric_labels, jsonb_object_keys(metric_labels) AS key
+		ORDER BY key`
+
+	metricNameValuesQuery = `
+		SELECT DISTINCT metric_name
+		FROM metric_labels
+		WHERE metric_name IS NOT NULL AND metric_name <> ''
+		ORDER BY metric_name`
+
+	labelValuesQuery = `
+		SELECT DISTINCT metric_labels->>$1 AS value
+		FROM metric_labels
+		WHERE metric_labels ? $1
+		ORDER BY value`
 )
 
 type (
@@ -130,6 +154,68 @@ func (p *PostgreSQL) CopyRows(
 	}
 
 	return nil
+}
+
+// MinSampleTimestamp returns the oldest sample timestamp in milliseconds. The
+// boolean is false when the database holds no samples.
+func (p *PostgreSQL) MinSampleTimestamp(ctx context.Context) (int64, bool, error) {
+	rows, err := p.db.Query(ctx, minSampleTimestampQuery)
+	if err != nil {
+		return 0, false, errors.Wrap(err, "failed to query minimum sample timestamp")
+	}
+
+	milliseconds, err := pgx.CollectExactlyOneRow(rows, pgx.RowTo[int64])
+	if err != nil {
+		return 0, false, errors.Wrap(err, "failed to collect minimum sample timestamp")
+	}
+
+	if milliseconds < 0 {
+		return 0, false, nil
+	}
+
+	return milliseconds, true, nil
+}
+
+// LabelNames returns all distinct label names stored in the database, excluding
+// the metric name. It returns a superset (matchers and time range are not
+// applied), which the Thanos StoreAPI permits.
+func (p *PostgreSQL) LabelNames(ctx context.Context) ([]string, error) {
+	rows, err := p.db.Query(ctx, labelNamesQuery)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query label names")
+	}
+
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to collect label names")
+	}
+
+	return names, nil
+}
+
+// LabelValues returns all distinct values for the given label name. It returns a
+// superset (matchers and time range are not applied).
+func (p *PostgreSQL) LabelValues(ctx context.Context, label string) ([]string, error) {
+	query := labelValuesQuery
+
+	args := []any{label}
+
+	if label == model.MetricNameLabel {
+		query = metricNameValuesQuery
+		args = nil
+	}
+
+	rows, err := p.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query label values")
+	}
+
+	values, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to collect label values")
+	}
+
+	return values, nil
 }
 
 func (p *PostgreSQL) CheckHealth(ctx context.Context) error {
