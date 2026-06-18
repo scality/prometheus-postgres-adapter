@@ -4,6 +4,8 @@ package database_test
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"prometheus-postgres-adapter/pkg/presentation/database"
 	"testing"
 
@@ -156,7 +158,7 @@ func (m *MockTx) Conn() *pgx.Conn {
 
 // createPostgreSQLWithMock creates a PostgreSQL with our mock pool.
 func createPostgreSQLWithMock(mockPool *MockPool) *database.PostgreSQL {
-	return database.NewPostgreSQL(mockPool)
+	return database.NewPostgreSQL(slog.New(slog.NewTextHandler(io.Discard, nil)), mockPool)
 }
 
 func TestPostgreSQL_Close(t *testing.T) {

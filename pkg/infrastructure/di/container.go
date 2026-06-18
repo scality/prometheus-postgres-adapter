@@ -12,6 +12,7 @@ import (
 	"prometheus-postgres-adapter/pkg/usecase"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
 )
 
 type Container struct {
@@ -21,6 +22,7 @@ type Container struct {
 
 	// Low level components
 	httpServer                  *http.Server
+	grpcServer                  *grpc.Server
 	postgreSQLDatabaseConnexion *pgxpool.Pool
 
 	// Handlers

@@ -5,8 +5,11 @@ import (
 	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 
-	"github.com/pkg/errors"
+	"github.com/scality/go-errors"
 )
+
+// ErrPushSamples is returned when samples cannot be pushed to the message queue.
+var ErrPushSamples = errors.New("failed to push samples")
 
 type (
 	PushPrometheusSamples struct {
@@ -35,7 +38,7 @@ func (uc *PushPrometheusSamples) Execute(ctx context.Context, samples *domain.Sa
 
 	err := uc.messageQueuePusher.Push(samples)
 	if err != nil {
-		return errors.Wrap(err, "failed to push samples")
+		return errors.Wrap(ErrPushSamples, errors.CausedBy(err))
 	}
 
 	return nil

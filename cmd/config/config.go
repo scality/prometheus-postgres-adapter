@@ -9,9 +9,12 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/scality/go-errors"
 	"github.com/sethvargo/go-envconfig"
 )
+
+// ErrProcessEnv is returned when environment variables cannot be processed.
+var ErrProcessEnv = errors.New("failed to process environment variables")
 
 const ApplicationName = "prometheus-postgres-adapter"
 
@@ -23,6 +26,8 @@ type (
 		LoggerLogLevel string `env:"LOGGER_LOG_LEVEL, default=info"`
 
 		HTTP     HTTP       `env:",prefix=HTTP_"`
+		GRPC     GRPC       `env:",prefix=GRPC_"`
+		StoreAPI StoreAPI   `env:",prefix=STORE_API_"`
 		Database PostgreSQL `env:",prefix=POSTGRESQL_DATABASE_"`
 
 		MetricParserCount int `env:"METRIC_PARSER_COUNT, default=1"`
@@ -41,6 +46,16 @@ type (
 	HTTP struct {
 		Addr string `env:"ADDR, default=:9201"`
 	}
+
+	GRPC struct {
+		Addr string `env:"ADDR, default=:10901"`
+	}
+
+	StoreAPI struct {
+		// ExternalLabels are advertised to Thanos via the StoreAPI Info call and
+		// used for deduplication. Format: "key1:value1,key2:value2".
+		ExternalLabels map[string]string `env:"EXTERNAL_LABELS"`
+	}
 )
 
 func NewEnvironment(ctx context.Context) (*Environment, error) {
@@ -48,7 +63,7 @@ func NewEnvironment(ctx context.Context) (*Environment, error) {
 
 	err := envconfig.Process(ctx, cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to process environment variables")
+		return nil, errors.Wrap(ErrProcessEnv, errors.CausedBy(err))
 	}
 
 	fmt.Println(ToString(cfg))
@@ -61,7 +76,7 @@ func ToString(src any) string {
 
 	writer := tabwriter.NewWriter(b, 0, 0, 1, ' ', tabwriter.Debug)
 	write(writer, src, 0)
-	writer.Flush()
+	_ = writer.Flush()
 
 	return b.String()
 }
@@ -89,7 +104,7 @@ func write(writer io.Writer, src any, level int) {
 		typeField := value.Type().Field(i)
 
 		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(time.Time{}) {
-			fmt.Fprintf(writer, "%s%s:\t\t\n", prefix, typeField.Name)
+			_, _ = fmt.Fprintf(writer, "%s%s:\t\t\n", prefix, typeField.Name)
 			write(writer, field.Interface(), level+1)
 
 			continue
@@ -100,6 +115,6 @@ func write(writer io.Writer, src any, level int) {
 			val = "********"
 		}
 
-		fmt.Fprintf(writer, "%s%s\t %v\t %s\n", prefix, typeField.Name, val, field.Type().String())
+		_, _ = fmt.Fprintf(writer, "%s%s\t %v\t %s\n", prefix, typeField.Name, val, field.Type().String())
 	}
 }

@@ -11,8 +11,27 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
+	"github.com/scality/go-errors"
+)
+
+var (
+	// ErrRegisterExistingMetrics is returned when existing metrics cannot be registered.
+	ErrRegisterExistingMetrics = errors.New("failed to register existing metrics")
+	// ErrQueryExistingMetrics is returned when existing metrics cannot be queried.
+	ErrQueryExistingMetrics = errors.New("failed to query existing metrics")
+	// ErrCastMetricID is returned when a metric_id value cannot be cast to int64.
+	ErrCastMetricID = errors.New("failed to cast metric_id to int64")
+	// ErrCastMetricNameLabel is returned when a metric_name_label value cannot be cast to string.
+	ErrCastMetricNameLabel = errors.New("failed to cast metric_name_label to string")
+	// ErrSaveRows is returned when buffered rows cannot be saved.
+	ErrSaveRows = errors.New("failed to save rows")
+	// ErrSaveLabels is returned when label rows cannot be saved.
+	ErrSaveLabels = errors.New("failed to save labels")
+	// ErrSaveValues is returned when value rows cannot be saved.
+	ErrSaveValues = errors.New("failed to save values")
+	// ErrUnmarshalJSON is returned when a metric label string cannot be unmarshalled.
+	ErrUnmarshalJSON = errors.New("failed to unmarshal json")
 )
 
 const (
@@ -81,7 +100,7 @@ func NewPostgreSQL(
 	// Recover and register existing metrics
 	err := postgreSQL.registerExistingMetrics(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to register existing metrics")
+		return nil, errors.Wrap(ErrRegisterExistingMetrics, errors.CausedBy(err))
 	}
 
 	return postgreSQL, nil
@@ -101,7 +120,7 @@ func (p *PostgreSQL) Run(ctx context.Context) {
 func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 	results, err := p.postgreSQLClient.QueryToMap(ctx, postgreSQLSelectMetricsLabelsQuery)
 	if err != nil {
-		return errors.Wrap(err, "failed to query existing metrics")
+		return errors.Wrap(ErrQueryExistingMetrics, errors.CausedBy(err))
 	}
 
 	var maxMetricID int64
@@ -112,7 +131,7 @@ func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 			// Handle different possible integer types from database
 			metricIDInt, ok := result[metricIDKey].(int)
 			if !ok {
-				return errors.New("failed to cast metric_id to int64")
+				return ErrCastMetricID
 			}
 
 			metricID = int64(metricIDInt)
@@ -120,7 +139,7 @@ func (p *PostgreSQL) registerExistingMetrics(ctx context.Context) error {
 
 		metricNameLabel, ok := result["metric_name_label"].(string)
 		if !ok {
-			return errors.New("failed to cast metric_name_label to string")
+			return ErrCastMetricNameLabel
 		}
 
 		// Store the metric ID using the full metric string as key
@@ -154,7 +173,7 @@ func (p *PostgreSQL) saver(ctx context.Context) {
 				err := p.save(ctx)
 				if err != nil {
 					p.ErrorChan <- ConcurrentError{
-						Err:       errors.Wrap(err, "failed to save rows"),
+						Err:       errors.Wrap(ErrSaveRows, errors.CausedBy(err)),
 						Component: "Writer",
 					}
 				}
@@ -198,7 +217,7 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 				// If it's not a duplicate key error, it's a real problem
 				if !strings.Contains(err.Error(), "duplicate key") &&
 					!strings.Contains(err.Error(), "violates unique constraint") {
-					return errors.Wrap(err, "failed to save labels")
+					return errors.Wrap(ErrSaveLabels, errors.CausedBy(err))
 				}
 				// Otherwise, the label already exists, which is fine
 			}
@@ -218,7 +237,7 @@ func (p *PostgreSQL) save(ctx context.Context) error {
 			valuesRowsCopy,
 		)
 		if err != nil {
-			return errors.Wrap(err, "failed to save values")
+			return errors.Wrap(ErrSaveValues, errors.CausedBy(err))
 		}
 	}
 
@@ -274,7 +293,7 @@ func (p *PostgreSQL) parser(ctx context.Context) {
 						err := json.Unmarshal([]byte(metricString[index:]), &jsonbMap)
 						if err != nil {
 							p.ErrorChan <- ConcurrentError{
-								Err:       errors.Wrap(err, "failed to unmarshal json"),
+								Err:       errors.Wrap(ErrUnmarshalJSON, errors.CausedBy(err)),
 								Component: "Parser",
 							}
 

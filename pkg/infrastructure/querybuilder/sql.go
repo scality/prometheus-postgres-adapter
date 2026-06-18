@@ -7,9 +7,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/prompb"
+	"github.com/scality/go-errors"
+)
+
+var (
+	// ErrUnknownMatchType is returned for an unsupported label matcher type.
+	ErrUnknownMatchType = errors.New("unknown match type")
+	// ErrUnknownMetricNameMatchType is returned for an unsupported metric name matcher type.
+	ErrUnknownMetricNameMatchType = errors.New("unknown metric name match type")
+	// ErrMarshalLabelsJSON is returned when label predicates cannot be marshalled to JSON.
+	ErrMarshalLabelsJSON = errors.New("failed to marshal labels to JSON")
 )
 
 const sqlBaseQueryFormat = `
@@ -91,7 +100,7 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 					),
 				)
 			default:
-				return "", errors.Errorf("unknown match type %v", m.Type)
+				return "", errors.Wrap(ErrUnknownMatchType, errors.WithProperty("type", m.Type))
 			}
 
 			continue
@@ -100,7 +109,7 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 		switch m.Type {
 		case prompb.LabelMatcher_EQ:
 			if len(escapedValue) == 0 {
-				matchers = append(matchers, "(l.metric_name IS NULL OR name = '')")
+				matchers = append(matchers, "(l.metric_name IS NULL OR l.metric_name = '')")
 			} else {
 				matchers = append(matchers, fmt.Sprintf("l.metric_name = '%s'", escapedValue))
 			}
@@ -111,7 +120,7 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 		case prompb.LabelMatcher_NRE:
 			matchers = append(matchers, fmt.Sprintf("l.metric_name !~ '%s'", anchorValue(escapedValue)))
 		default:
-			return "", errors.Errorf("unknown metric name match type %v", m.Type)
+			return "", errors.Wrap(ErrUnknownMetricNameMatchType, errors.WithProperty("type", m.Type))
 		}
 	}
 
@@ -120,7 +129,7 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 	if len(labelEqualPredicates) > 0 {
 		labelsJSON, err := json.Marshal(labelEqualPredicates)
 		if err != nil {
-			return "", errors.Wrap(err, "failed to marshal labels to JSON")
+			return "", errors.Wrap(ErrMarshalLabelsJSON, errors.CausedBy(err))
 		}
 
 		equalsPredicate = fmt.Sprintf(" AND l.metric_labels @> '%s'", labelsJSON)
