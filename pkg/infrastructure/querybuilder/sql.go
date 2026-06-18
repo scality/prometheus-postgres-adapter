@@ -109,7 +109,7 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 		switch m.Type {
 		case prompb.LabelMatcher_EQ:
 			if len(escapedValue) == 0 {
-				matchers = append(matchers, "(l.metric_name IS NULL OR name = '')")
+				matchers = append(matchers, "(l.metric_name IS NULL OR l.metric_name = '')")
 			} else {
 				matchers = append(matchers, fmt.Sprintf("l.metric_name = '%s'", escapedValue))
 			}

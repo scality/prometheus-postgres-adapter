@@ -71,7 +71,7 @@ func TestSQL_BuildSQLQuery(t *testing.T) {
 
 		sql, err := builder.BuildSQLQuery(query)
 		require.NoError(t, err)
-		assert.Contains(t, sql, "(l.metric_name IS NULL OR name = '')")
+		assert.Contains(t, sql, "(l.metric_name IS NULL OR l.metric_name = '')")
 	})
 
 	t.Run("label inequality", func(t *testing.T) {
