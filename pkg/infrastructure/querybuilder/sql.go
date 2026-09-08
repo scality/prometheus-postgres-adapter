@@ -21,13 +21,19 @@ var (
 	ErrMarshalLabelsJSON = errors.New("failed to marshal labels to JSON")
 )
 
-const sqlBaseQueryFormat = `
+const (
+	sqlBaseQueryFormat = `
 		SELECT v.metric_time, l.metric_name, v.metric_value, l.metric_labels
-		FROM metric_values v, metric_labels l 
-		WHERE l.metric_id = v.metric_id 
-		  AND %s %s 
+		FROM metric_values v, metric_labels l
+		WHERE l.metric_id = v.metric_id
+		  AND %s
 		ORDER BY v.metric_time
 `
+
+	// noMatcherPredicate is the predicate used when no matcher restricts the
+	// selected series.
+	noMatcherPredicate = "TRUE"
+)
 
 type SQL struct{}
 
@@ -44,13 +50,54 @@ func NewSQL() *SQL {
 //
 // It anchors regex patterns automatically (adding ^ and $ if missing) and escapes single quotes.
 // Time constraints from the query are added as conditions on the metric_time column.
+func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
+	conditions, err := buildLabelConditions(prometheusQuery.Matchers)
+	if err != nil {
+		return "", err
+	}
+
+	conditions = append(
+		conditions,
+		fmt.Sprintf(
+			"v.metric_time >= '%v'",
+			toTimestamp(prometheusQuery.StartTimestampMs).Format(time.RFC3339),
+		),
+		fmt.Sprintf(
+			"v.metric_time <= '%v'",
+			toTimestamp(prometheusQuery.EndTimestampMs).Format(time.RFC3339),
+		),
+	)
+
+	return fmt.Sprintf(sqlBaseQueryFormat, strings.Join(conditions, " AND ")), nil
+}
+
+// BuildLabelsPredicate turns label matchers into a SQL predicate over the
+// metric_labels table, aliased l. Unlike BuildSQLQuery it never touches
+// metric_values, so label metadata can be filtered by matchers without joining
+// the samples. It returns TRUE when no matcher restricts the series.
+func (*SQL) BuildLabelsPredicate(matchers []*prompb.LabelMatcher) (string, error) {
+	conditions, err := buildLabelConditions(matchers)
+	if err != nil {
+		return "", err
+	}
+
+	if len(conditions) == 0 {
+		return noMatcherPredicate, nil
+	}
+
+	return strings.Join(conditions, " AND "), nil
+}
+
+// buildLabelConditions turns label matchers into SQL conditions on the
+// metric_labels table, aliased l. Equality matchers on labels are merged into a
+// single JSONB containment condition, appended last.
 //
 //nolint:gocognit,funlen,mnd // Query building is complex by essence
-func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
-	matchers := make([]string, 0, len(prometheusQuery.Matchers))
+func buildLabelConditions(labelMatchers []*prompb.LabelMatcher) ([]string, error) {
+	matchers := make([]string, 0, len(labelMatchers))
 	labelEqualPredicates := make(map[string]string)
 
-	for _, m := range prometheusQuery.Matchers {
+	for _, m := range labelMatchers {
 		escapedName := escapeValue(m.Name)
 		escapedValue := escapeValue(m.Value)
 
@@ -100,7 +147,7 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 					),
 				)
 			default:
-				return "", errors.Wrap(ErrUnknownMatchType, errors.WithProperty("type", m.Type))
+				return nil, errors.Wrap(ErrUnknownMatchType, errors.WithProperty("type", m.Type))
 			}
 
 			continue
@@ -120,34 +167,20 @@ func (*SQL) BuildSQLQuery(prometheusQuery *prompb.Query) (string, error) {
 		case prompb.LabelMatcher_NRE:
 			matchers = append(matchers, fmt.Sprintf("l.metric_name !~ '%s'", anchorValue(escapedValue)))
 		default:
-			return "", errors.Wrap(ErrUnknownMetricNameMatchType, errors.WithProperty("type", m.Type))
+			return nil, errors.Wrap(ErrUnknownMetricNameMatchType, errors.WithProperty("type", m.Type))
 		}
 	}
-
-	equalsPredicate := ""
 
 	if len(labelEqualPredicates) > 0 {
 		labelsJSON, err := json.Marshal(labelEqualPredicates)
 		if err != nil {
-			return "", errors.Wrap(ErrMarshalLabelsJSON, errors.CausedBy(err))
+			return nil, errors.Wrap(ErrMarshalLabelsJSON, errors.CausedBy(err))
 		}
 
-		equalsPredicate = fmt.Sprintf(" AND l.metric_labels @> '%s'", labelsJSON)
+		matchers = append(matchers, fmt.Sprintf("l.metric_labels @> '%s'", labelsJSON))
 	}
 
-	matchers = append(
-		matchers,
-		fmt.Sprintf(
-			"v.metric_time >= '%v'",
-			toTimestamp(prometheusQuery.StartTimestampMs).Format(time.RFC3339),
-		),
-		fmt.Sprintf(
-			"v.metric_time <= '%v'",
-			toTimestamp(prometheusQuery.EndTimestampMs).Format(time.RFC3339),
-		),
-	)
-
-	return fmt.Sprintf(sqlBaseQueryFormat, strings.Join(matchers, " AND "), equalsPredicate), nil
+	return matchers, nil
 }
 
 func escapeValue(str string) string {

@@ -270,3 +270,70 @@ func TestSQL_BuildSQLQuery(t *testing.T) {
 		assert.Contains(t, err.Error(), "unknown metric name match type")
 	})
 }
+
+func TestSQL_BuildLabelsPredicate(t *testing.T) {
+	builder := querybuilder.NewSQL()
+
+	t.Run("no matcher selects every series", func(t *testing.T) {
+		predicate, err := builder.BuildLabelsPredicate(nil)
+		require.NoError(t, err)
+		assert.Equal(t, "TRUE", predicate)
+	})
+
+	t.Run("metric name equality", func(t *testing.T) {
+		predicate, err := builder.BuildLabelsPredicate([]*prompb.LabelMatcher{
+			{Type: prompb.LabelMatcher_EQ, Name: "__name__", Value: "cpu_usage"},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "l.metric_name = 'cpu_usage'", predicate)
+	})
+
+	t.Run("label equality uses JSONB containment", func(t *testing.T) {
+		predicate, err := builder.BuildLabelsPredicate([]*prompb.LabelMatcher{
+			{Type: prompb.LabelMatcher_EQ, Name: "host", Value: "server1"},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, `l.metric_labels @> '{"host":"server1"}'`, predicate)
+	})
+
+	t.Run("several matchers are joined with AND", func(t *testing.T) {
+		predicate, err := builder.BuildLabelsPredicate([]*prompb.LabelMatcher{
+			{Type: prompb.LabelMatcher_EQ, Name: "__name__", Value: "cpu_usage"},
+			{Type: prompb.LabelMatcher_RE, Name: "instance", Value: "prod.*"},
+			{Type: prompb.LabelMatcher_EQ, Name: "host", Value: "server1"},
+		})
+		require.NoError(t, err)
+		assert.Equal(
+			t,
+			`l.metric_name = 'cpu_usage'`+
+				` AND l.metric_labels->>'instance' ~ '^prod.*$'`+
+				` AND l.metric_labels @> '{"host":"server1"}'`,
+			predicate,
+		)
+	})
+
+	t.Run("no time bound and no samples table", func(t *testing.T) {
+		predicate, err := builder.BuildLabelsPredicate([]*prompb.LabelMatcher{
+			{Type: prompb.LabelMatcher_EQ, Name: "__name__", Value: "cpu_usage"},
+		})
+		require.NoError(t, err)
+		assert.NotContains(t, predicate, "metric_time")
+		assert.NotContains(t, predicate, "metric_values")
+	})
+
+	t.Run("escape single quotes", func(t *testing.T) {
+		predicate, err := builder.BuildLabelsPredicate([]*prompb.LabelMatcher{
+			{Type: prompb.LabelMatcher_EQ, Name: "__name__", Value: "metric'with'quotes"},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "l.metric_name = 'metric''with''quotes'", predicate)
+	})
+
+	t.Run("error on unknown matcher type", func(t *testing.T) {
+		_, err := builder.BuildLabelsPredicate([]*prompb.LabelMatcher{
+			{Type: 999, Name: "host", Value: "server1"},
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown match type")
+	})
+}
