@@ -102,7 +102,7 @@ func (s *Server) Series(req *storepb.SeriesRequest, srv storepb.Store_SeriesServ
 	ctx := srv.Context()
 
 	s.logger.DebugContext(ctx, "received series request",
-		slog.String("matchers", storepb.MatchersToString(req.Matchers...)),
+		slog.Any("matchers", loggableMatchers(req.Matchers)),
 		slog.Int64("min_time", req.MinTime),
 		slog.Int64("max_time", req.MaxTime),
 		slog.Bool("skip_chunks", req.SkipChunks),
@@ -155,7 +155,7 @@ func (s *Server) LabelNames(
 	req *storepb.LabelNamesRequest,
 ) (*storepb.LabelNamesResponse, error) {
 	s.logger.DebugContext(ctx, "received label names request",
-		slog.String("matchers", storepb.MatchersToString(req.Matchers...)),
+		slog.Any("matchers", loggableMatchers(req.Matchers)),
 		slog.Int64("min_time", req.Start),
 		slog.Int64("max_time", req.End),
 	)
@@ -212,7 +212,7 @@ func (s *Server) LabelValues(
 ) (*storepb.LabelValuesResponse, error) {
 	s.logger.DebugContext(ctx, "received label values request",
 		slog.String("label", req.Label),
-		slog.String("matchers", storepb.MatchersToString(req.Matchers...)),
+		slog.Any("matchers", loggableMatchers(req.Matchers)),
 		slog.Int64("min_time", req.Start),
 		slog.Int64("max_time", req.End),
 	)

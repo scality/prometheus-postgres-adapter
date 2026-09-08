@@ -4,6 +4,10 @@
 package storeapi
 
 import (
+	"fmt"
+	"log/slog"
+	"strings"
+
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/scality/go-errors"
 	"github.com/thanos-io/thanos/pkg/store/storepb"
@@ -18,6 +22,38 @@ var matcherTypeToProm = map[storepb.LabelMatcher_Type]prompb.LabelMatcher_Type{
 	storepb.LabelMatcher_NEQ: prompb.LabelMatcher_NEQ,
 	storepb.LabelMatcher_RE:  prompb.LabelMatcher_RE,
 	storepb.LabelMatcher_NRE: prompb.LabelMatcher_NRE,
+}
+
+//nolint:gochecknoglobals // Static lookup table for matcher rendering.
+var matcherTypeToOperator = map[storepb.LabelMatcher_Type]string{
+	storepb.LabelMatcher_EQ:  "=",
+	storepb.LabelMatcher_NEQ: "!=",
+	storepb.LabelMatcher_RE:  "=~",
+	storepb.LabelMatcher_NRE: "!~",
+}
+
+// loggableMatchers renders request matchers for logging, in the PromQL form
+// Thanos uses, and only when a handler takes the record: slog resolves a
+// LogValuer at that point, so nothing is rendered at a level that discards it.
+//
+// It stands in for storepb.MatchersToString, which panics on a matcher type the
+// enum does not know. proto3 enums are open, so any client can send one, and a
+// request is logged before it is validated.
+type loggableMatchers []storepb.LabelMatcher
+
+func (m loggableMatchers) LogValue() slog.Value {
+	rendered := make([]string, 0, len(m))
+
+	for _, matcher := range m {
+		operator, known := matcherTypeToOperator[matcher.Type]
+		if !known {
+			operator = fmt.Sprintf("<%d>", matcher.Type)
+		}
+
+		rendered = append(rendered, fmt.Sprintf("%s%s%q", matcher.Name, operator, matcher.Value))
+	}
+
+	return slog.StringValue("{" + strings.Join(rendered, ", ") + "}")
 }
 
 // PromQueryFromSeriesRequest converts a Thanos StoreAPI SeriesRequest into a

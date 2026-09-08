@@ -109,7 +109,9 @@ func newTestServerWithBuilder(
 	querier storeapi.Querier,
 	externalLabels map[string]string,
 ) *storeapi.Server {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// Debug level: the handlers render their matchers only when it is on, and
+	// that rendering is what stands between a malformed request and a panic.
+	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	return storeapi.NewServer(logger, builder, querier, externalLabels)
 }
@@ -353,6 +355,8 @@ func TestServer_LabelValues(t *testing.T) {
 
 func TestServer_LabelMetadataFailures(t *testing.T) {
 	externalLabels := map[string]string{"source": "postgres-adapter"}
+	unsupportedMatchers := []storepb.LabelMatcher{{Type: 99, Name: "job", Value: "node"}}
+
 	t.Run("a database failure is reported as internal", func(t *testing.T) {
 		failure := errors.New("database is unreachable")
 
@@ -382,6 +386,37 @@ func TestServer_LabelMetadataFailures(t *testing.T) {
 			assert.Equal(t, codes.Internal, status.Code(err))
 			assert.Contains(t, status.Convert(err).Message(), "label values")
 		})
+	})
+
+	t.Run("an unsupported matcher type is rejected as invalid", func(t *testing.T) {
+		server := newTestServer(&mockQuerier{}, externalLabels)
+
+		_, err := server.LabelNames(context.Background(), &storepb.LabelNamesRequest{
+			Matchers: unsupportedMatchers,
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+
+		_, err = server.LabelValues(context.Background(), &storepb.LabelValuesRequest{
+			Label:    "instance",
+			Matchers: unsupportedMatchers,
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+
+		// Same on an external label, where the matcher is checked against the
+		// configured value rather than translated to SQL.
+		_, err = server.LabelNames(context.Background(), &storepb.LabelNamesRequest{
+			Matchers: []storepb.LabelMatcher{{Type: 99, Name: "source", Value: "postgres-adapter"}},
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+
+		// And on the samples path, which renders the same matchers.
+		stream := &fakeSeriesServer{ctx: context.Background()}
+		err = server.Series(&storepb.SeriesRequest{Matchers: unsupportedMatchers}, stream)
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
 	})
 
 	t.Run("a matcher the builder cannot translate is rejected as invalid", func(t *testing.T) {
