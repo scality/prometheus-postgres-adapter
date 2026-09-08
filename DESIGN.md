@@ -175,8 +175,11 @@ ever be fed trusted matcher input from the remote-read / StoreAPI decoders.
 `BuildLabelsPredicate` reuses that same matcher translation on its own, without
 the time bounds and without `metric_values`, and returns `TRUE` when no matcher
 restricts the series. The StoreAPI label metadata queries splice it into their
-`WHERE`, so they stay on the small `metric_labels` table. The label names come
-back unsorted, since the server sorts what it merges the metric name and the
+`WHERE`, so they stay on the small `metric_labels` table. The two that return
+values sort with the `C` collation, because the StoreAPI expects results ordered
+byte by byte and a locale-aware collation does not do that (it ignores
+punctuation, sorting `__name__` after `job`); the label names come back
+unsorted, since the server sorts what it merges the metric name and the
 external labels into.
 
 Exposing the StoreAPI widens that surface: PromQL label and regex values from

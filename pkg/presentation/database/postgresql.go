@@ -58,9 +58,12 @@ const (
 	// It is parenthesized where it joins the other conditions, so that a
 	// predicate holding a top-level OR cannot widen them.
 	//
-	// The label names are sorted by the server, which merges the metric name
-	// and the external labels into them, so sorting them here would be work
-	// thrown away.
+	// The two that return values sort with the C collation, because the
+	// StoreAPI expects results ordered byte by byte and a locale-aware
+	// collation does not do that (it ignores punctuation, sorting __name__
+	// after job). The label names are sorted by the server, which merges the
+	// metric name and the external labels into them, so sorting them here
+	// would be work thrown away.
 	labelNamesQueryFormat = `
 		SELECT DISTINCT e.key
 		FROM metric_labels l
@@ -73,7 +76,7 @@ const (
 		WHERE (%s)`
 
 	metricNameValuesQueryFormat = `
-		SELECT DISTINCT l.metric_name
+		SELECT DISTINCT l.metric_name COLLATE "C" AS metric_name
 		FROM metric_labels l
 		WHERE l.metric_name IS NOT NULL AND l.metric_name <> ''
 		  AND (%s)
@@ -84,7 +87,7 @@ const (
 	// thing about a key that is missing, but no index can answer it (50k
 	// series, a label nothing carries: 0.02ms with it, 7.5ms without).
 	labelValuesQueryFormat = `
-		SELECT DISTINCT l.metric_labels->>$1 AS value
+		SELECT DISTINCT (l.metric_labels->>$1) COLLATE "C" AS value
 		FROM metric_labels l
 		WHERE l.metric_labels ? $1
 		  AND COALESCE(l.metric_labels->>$1, '') <> ''
