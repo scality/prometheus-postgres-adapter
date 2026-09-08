@@ -14,6 +14,21 @@ required to run the adapter, but not to build it or run the unit tests.
 The everyday commands are listed in the README's
 [Development](README.md#development) section.
 
+The unit tests run the database client against a mock pool, so they only check
+the SQL text. `pkg/presentation/database/postgresql_integration_test.go`
+executes it instead, and is the only place where a query is checked to be valid
+PostgreSQL and to mean what it is meant to mean -- the JSONB label lookups, the
+byte-wise ordering, the PromQL matcher semantics. It skips unless it is pointed
+at a **throwaway** database, whose tables it drops and recreates:
+
+```bash
+docker run --rm -d -e POSTGRES_PASSWORD=test -p 5432:5432 postgres:16
+PPA_TEST_POSTGRES_DSN='postgres://postgres:test@127.0.0.1:5432/postgres?sslmode=disable' \
+  go test ./pkg/presentation/database/
+```
+
+Run it whenever you touch a query.
+
 ## Architecture
 
 The project uses a layered architecture with an inward-only dependency rule
