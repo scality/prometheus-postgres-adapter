@@ -151,14 +151,23 @@ Two tables (see the [README](README.md#database-setup) for the DDL):
   (`TIMESTAMPTZ`), `metric_value` (`FLOAT8`), indexed by
   `(metric_id, metric_time DESC)` and by `metric_time DESC`.
 
-`querybuilder` turns a `prompb.Query` into SQL joining the two tables:
-matchers on `__name__` become conditions on `metric_name`; equality label
-matchers become a JSONB containment (`metric_labels @> '{"k":"v"}'`),
-inequality and regex matchers become `metric_labels->>'k'` comparisons
-(regex via PostgreSQL `~`/`!~`, anchored); the query's time window becomes
-`metric_time` bounds. Values are escaped, but the builder composes SQL by
-string interpolation, so it must only ever be fed trusted matcher input from
-the remote-read / StoreAPI decoders.
+`querybuilder` turns a `prompb.Query` into SQL joining the two tables: matchers
+on `__name__` become conditions on `metric_name`, all four reading the column
+bare, since the schema declares it `NOT NULL` -- defending against a NULL on
+the equality alone made the answer to one depend on which matcher asked; every
+equality label matcher becomes a JSONB containment of its own (`metric_labels
+@> '{"k":"v"}'`, which the GIN index serves, and two of them on one label state
+the contradiction PromQL answers with nothing); inequality and regex matchers
+become `COALESCE(metric_labels->>'k', '')` comparisons (regex via PostgreSQL
+`~`/`!~`); the query's time window becomes `metric_time` bounds, clamped to the
+years RFC 3339 can write, since Prometheus and Thanos say "no bound" with the
+extremes of int64 milliseconds and PostgreSQL stores no such date. Two PromQL
+rules shape that translation: a series that does not carry a label is matched
+as if it carried it empty, hence the `COALESCE`; and a matcher pattern is
+anchored as a whole, `^(?:...)$`, not by appending `^` and `$` to it, which
+would bind them to the first and last branch of an alternation only. Values are
+escaped, but the builder composes SQL by string interpolation, so it must only
+ever be fed trusted matcher input from the remote-read / StoreAPI decoders.
 
 Exposing the StoreAPI widens that surface: PromQL label and regex values from
 any Thanos Query client now reach the builder. Two consequences follow. First,
@@ -169,6 +178,26 @@ straight to PostgreSQL's regex engine over many rows, so a pathological pattern
 is a cheap denial-of-service (ReDoS) vector that escaping does not address.
 Binding values as query parameters instead of interpolating them is the robust
 long-term fix and is tracked as future work.
+
+That engine is also not the one the client wrote its pattern for: PromQL uses
+RE2, PostgreSQL uses POSIX ARE, and the builder hands the pattern over as it
+is. The two agree on most of what a dashboard writes -- literals, classes,
+alternations, groups, bounds -- and part company in ways this adapter does not
+yet address:
+
+- the character classes are ASCII in RE2 and Unicode-aware here, so
+  `job=~"\w+"` selects `é` here and would not in Prometheus;
+- `\b` is a word boundary in PromQL and a literal backspace here, so such a
+  matcher selects nothing rather than failing;
+- `\z`, `\p`, `\P` and `\Q` are escapes PostgreSQL does not know, an embedded
+  option group (`(?i)`) is one it reads only at the very start of an
+  expression, and a repetition bound above 255 is one it refuses. Those fail
+  the query, which the read paths report as this store breaking rather than as
+  the matcher being wrong.
+
+Checking a pattern against RE2 before it is spliced in, translating what the
+two engines read differently, and answering the rest as a bad request rather
+than an internal error are the fixes, and none of them is here yet.
 
 ## Design decisions
 

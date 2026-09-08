@@ -118,7 +118,8 @@ func (s *Server) Series(req *storepb.SeriesRequest, srv storepb.Store_SeriesServ
 
 	sqlQuery, err := s.builder.BuildSQLQuery(query)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed to build SQL query: %v", err)
+		// The builder only ever fails on what the matchers carry.
+		return status.Errorf(codes.InvalidArgument, "invalid matchers: %v", err)
 	}
 
 	rows, err := s.querier.QueryDatabaseSamples(ctx, sqlQuery)
