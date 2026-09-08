@@ -28,6 +28,7 @@ type (
 	// QueryBuilder turns a Prometheus query into the SQL executed against the database.
 	QueryBuilder interface {
 		BuildSQLQuery(*prompb.Query) (string, error)
+		BuildLabelsPredicate([]*prompb.LabelMatcher) (string, error)
 	}
 
 	// Querier reads samples and metadata from the database.
@@ -38,8 +39,9 @@ type (
 			args ...any,
 		) ([]*domain.SamplesReadFromDatabase, error)
 		MinSampleTimestamp(ctx context.Context) (int64, bool, error)
-		LabelNames(ctx context.Context) ([]string, error)
-		LabelValues(ctx context.Context, label string) ([]string, error)
+		SeriesExist(ctx context.Context, predicate string) (bool, error)
+		LabelNames(ctx context.Context, predicate string) ([]string, bool, error)
+		LabelValues(ctx context.Context, label, predicate string) ([]string, error)
 	}
 
 	// Server implements the Thanos StoreAPI (storepb.StoreServer) and Info API
@@ -118,7 +120,6 @@ func (s *Server) Series(req *storepb.SeriesRequest, srv storepb.Store_SeriesServ
 
 	sqlQuery, err := s.builder.BuildSQLQuery(query)
 	if err != nil {
-		// The builder only ever fails on what the matchers carry.
 		return status.Errorf(codes.InvalidArgument, "invalid matchers: %v", err)
 	}
 
@@ -146,7 +147,9 @@ func (s *Server) Series(req *storepb.SeriesRequest, srv storepb.Store_SeriesServ
 	return nil
 }
 
-// LabelNames returns the label names available in the store.
+// LabelNames returns the label names carried by the series matching the request
+// matchers, the external labels included. The request time range is not applied:
+// the result may hold names whose series have no sample in that window.
 func (s *Server) LabelNames(
 	ctx context.Context,
 	req *storepb.LabelNamesRequest,
@@ -157,11 +160,29 @@ func (s *Server) LabelNames(
 		slog.Int64("max_time", req.End),
 	)
 
-	names, err := s.querier.LabelNames(ctx)
+	predicate, matched, err := s.labelsPredicate(req.Matchers)
+	if err != nil {
+		return nil, err
+	}
+
+	if !matched {
+		// An external-label matcher excludes this store; nothing to return.
+		return &storepb.LabelNamesResponse{}, nil
+	}
+
+	names, exist, err := s.querier.LabelNames(ctx, predicate)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get label names: %v", err)
 	}
 
+	if !exist {
+		// No series matches, so the store has no label name to report, not
+		// even the ones it would have applied to a matching series.
+		return &storepb.LabelNamesResponse{}, nil
+	}
+
+	// The metric name and the external labels are carried by every matching
+	// series, but neither is stored in the labels column.
 	unique := map[string]struct{}{model.MetricNameLabel: {}}
 
 	for _, name := range names {
@@ -182,7 +203,9 @@ func (s *Server) LabelNames(
 	return &storepb.LabelNamesResponse{Names: result}, nil
 }
 
-// LabelValues returns the values of a given label name.
+// LabelValues returns the values the given label takes on the series matching
+// the request matchers. The request time range is not applied: the result may
+// hold values whose series have no sample in that window.
 func (s *Server) LabelValues(
 	ctx context.Context,
 	req *storepb.LabelValuesRequest,
@@ -194,16 +217,59 @@ func (s *Server) LabelValues(
 		slog.Int64("max_time", req.End),
 	)
 
+	predicate, matched, err := s.labelsPredicate(req.Matchers)
+	if err != nil {
+		return nil, err
+	}
+
+	if !matched {
+		// An external-label matcher excludes this store; nothing to return.
+		return &storepb.LabelValuesResponse{}, nil
+	}
+
 	if value, ok := s.externalLabels[req.Label]; ok {
+		// External labels are not stored in the database: the store only holds
+		// that value as long as it holds a series matching the request.
+		exist, err := s.querier.SeriesExist(ctx, predicate)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to look for a matching series: %v", err)
+		}
+
+		if !exist {
+			return &storepb.LabelValuesResponse{}, nil
+		}
+
 		return &storepb.LabelValuesResponse{Values: []string{value}}, nil
 	}
 
-	values, err := s.querier.LabelValues(ctx, req.Label)
+	values, err := s.querier.LabelValues(ctx, req.Label, predicate)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get label values: %v", err)
 	}
 
 	return &storepb.LabelValuesResponse{Values: values}, nil
+}
+
+// labelsPredicate turns the request matchers into a SQL predicate on the stored
+// labels. The boolean is false when an external-label matcher excludes this
+// store entirely; the error, when set, is already a gRPC status error.
+func (s *Server) labelsPredicate(matchers []storepb.LabelMatcher) (string, bool, error) {
+	labelMatchers, matched, err := promMatchers(matchers, s.externalLabels)
+	if err != nil {
+		return "", false, status.Errorf(codes.InvalidArgument, "invalid matchers: %v", err)
+	}
+
+	if !matched {
+		return "", false, nil
+	}
+
+	predicate, err := s.builder.BuildLabelsPredicate(labelMatchers)
+	if err != nil {
+		// The builder only ever fails on what the matchers carry.
+		return "", false, status.Errorf(codes.InvalidArgument, "invalid matchers: %v", err)
+	}
+
+	return predicate, true, nil
 }
 
 func (s *Server) labelSets() []labelpb.ZLabelSet {

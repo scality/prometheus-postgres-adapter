@@ -33,9 +33,28 @@ func PromQueryFromSeriesRequest(
 	req *storepb.SeriesRequest,
 	externalLabels map[string]string,
 ) (*prompb.Query, bool, error) {
-	matchers := make([]*prompb.LabelMatcher, 0, len(req.Matchers))
+	matchers, matched, err := promMatchers(req.Matchers, externalLabels)
+	if err != nil || !matched {
+		return nil, matched, err
+	}
 
-	for _, m := range req.Matchers {
+	return &prompb.Query{
+		StartTimestampMs: req.MinTime,
+		EndTimestampMs:   req.MaxTime,
+		Matchers:         matchers,
+	}, true, nil
+}
+
+// promMatchers converts StoreAPI matchers into Prometheus ones, validating and
+// dropping those targeting an external label. The boolean is false when such a
+// matcher excludes this store entirely.
+func promMatchers(
+	storeMatchers []storepb.LabelMatcher,
+	externalLabels map[string]string,
+) ([]*prompb.LabelMatcher, bool, error) {
+	matchers := make([]*prompb.LabelMatcher, 0, len(storeMatchers))
+
+	for _, m := range storeMatchers {
 		if value, ok := externalLabels[m.Name]; ok {
 			matches, err := externalLabelMatches(m, value)
 			if err != nil {
@@ -61,11 +80,7 @@ func PromQueryFromSeriesRequest(
 		})
 	}
 
-	return &prompb.Query{
-		StartTimestampMs: req.MinTime,
-		EndTimestampMs:   req.MaxTime,
-		Matchers:         matchers,
-	}, true, nil
+	return matchers, true, nil
 }
 
 // externalLabelMatches reports whether the store's external label value

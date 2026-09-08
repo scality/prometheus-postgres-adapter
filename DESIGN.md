@@ -123,9 +123,12 @@ first-class store. `pkg/presentation/storeapi` implements both
 - **Series** converts the `SeriesRequest` (matchers + time range) into a
   `prompb.Query`, reuses `BuildSQLQuery` and the querier, groups the rows into
   sorted series, and streams them encoded as XOR chunks.
-- **LabelNames / LabelValues** return the distinct label names and values
-  (a superset — matchers and time range are not applied, which the StoreAPI
-  permits).
+- **LabelNames / LabelValues** apply the request matchers, so a
+  `label_values(some_metric, instance)` only sees the instances of that metric.
+  The matchers become a SQL predicate on `metric_labels` alone
+  (`BuildLabelsPredicate`), which filters the metadata without joining the
+  samples. The request **time range is not applied** -- see
+  [below](#label-metadata-matchers-yes-time-range-no).
 
 The gRPC server also registers the standard `grpc_health_v1` health service
 for Kubernetes probes. It runs alongside the HTTP server and both are stopped
@@ -169,6 +172,13 @@ would bind them to the first and last branch of an alternation only. Values are
 escaped, but the builder composes SQL by string interpolation, so it must only
 ever be fed trusted matcher input from the remote-read / StoreAPI decoders.
 
+`BuildLabelsPredicate` reuses that same matcher translation on its own, without
+the time bounds and without `metric_values`, and returns `TRUE` when no matcher
+restricts the series. The StoreAPI label metadata queries splice it into their
+`WHERE`, so they stay on the small `metric_labels` table. The label names come
+back unsorted, since the server sorts what it merges the metric name and the
+external labels into.
+
 Exposing the StoreAPI widens that surface: PromQL label and regex values from
 any Thanos Query client now reach the builder. Two consequences follow. First,
 escaping is single-quote doubling, which is injection-safe only while
@@ -176,8 +186,13 @@ PostgreSQL runs with `standard_conforming_strings=on` (the default since 9.1) --
 do not disable it. Second, regex matchers (`~`/`!~`) hand the client's pattern
 straight to PostgreSQL's regex engine over many rows, so a pathological pattern
 is a cheap denial-of-service (ReDoS) vector that escaping does not address.
+Interpolation costs more than safety: pgx caches prepared statements by SQL
+text, so every distinct set of matcher values is another statement to prepare
+and another eviction from a cache that holds 512 of them. A Thanos fleet
+exploring labels never hits it.
+
 Binding values as query parameters instead of interpolating them is the robust
-long-term fix and is tracked as future work.
+long-term fix for all three and is tracked as future work.
 
 That engine is also not the one the client wrote its pattern for: PromQL uses
 RE2, PostgreSQL uses POSIX ARE, and the builder hands the pattern over as it
@@ -229,6 +244,53 @@ Configure a label that identifies *this* store (e.g.
 `source=postgres-adapter`) so queries can isolate adapter-served data;
 `prometheus_replica`-style labels are handled by Thanos' existing
 `--query.replica-label` deduplication.
+
+### Label metadata: matchers yes, time range no
+
+`LabelNames`/`LabelValues` filter on the request matchers but ignore its time
+range, and that asymmetry is deliberate. Matchers are cheap: they translate
+into a predicate on `metric_labels`, which holds one row per series, and the
+equality ones are served by its GIN index (the inequality and regex ones are
+not: they scan that table, which is the cost the ReDoS note above describes).
+Restricting to a time range would mean joining `metric_values` -- the
+large append-only table -- over the whole requested window just to answer a
+metadata question, which is the expensive path this adapter is least able to
+afford.
+
+The consequence is a superset in time: a label whose series stopped reporting
+before the requested window is still returned. That is a real deviation from the
+StoreAPI contract, not something it permits. Thanos' `rpc.proto` documents
+`LabelNames` as returning "all label names constrained by the given matchers",
+its store acceptance tests cover both the matchers and the `start`/`end` bounds,
+and Thanos Query does not re-filter what a store returns -- so the extra values
+reach the caller (a Grafana variable dropdown, an autocomplete list). It never
+affects the samples themselves: `Series` applies both the matchers and the time
+range.
+
+`LabelNames` answers two questions in one query: which labels the matching
+series carry, and whether any series matched at all. It needs the second
+because what it adds to the answer -- the metric name and the external labels
+-- is not in the labels column, so a series carrying nothing but its name and a
+store matching nothing would otherwise look alike. An outer join tells them
+apart: a matching series with no label of its own comes back as a row with no
+key. A store with nothing to match returns nothing at all, not even those.
+
+`LabelValues` only asks the second question for an external label, whose value
+comes from the configuration rather than from a row, and asks it with an
+`EXISTS`. The values of a stored label come from a query that already filters
+itself: an empty result is an empty answer.
+
+Both queries agree on what a label is: a key whose value is neither a JSON null
+nor empty. An empty label value is how Prometheus says the label is absent, so
+offering a name that resolves to no value would put a dead entry in every
+dropdown.
+
+Matchers on an external label are validated against the configured value and
+dropped before reaching SQL, as on the `Series` path: a matcher that excludes
+this store returns nothing, and an external label's value is only returned when
+the store holds a series matching the rest of the request. Neither the metric
+name nor the external labels are stored in the labels column, so the server is
+what puts them back into a `LabelNames` answer.
 
 ### XOR chunks
 

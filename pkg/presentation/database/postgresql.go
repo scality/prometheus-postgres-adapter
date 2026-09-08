@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"prometheus-postgres-adapter/pkg/domain"
 	"time"
@@ -35,6 +36,10 @@ var (
 	ErrQueryLabelNames = errors.New("failed to query label names")
 	// ErrCollectLabelNames is returned when label names cannot be collected.
 	ErrCollectLabelNames = errors.New("failed to collect label names")
+	// ErrQuerySeriesExist is returned when the series existence cannot be queried.
+	ErrQuerySeriesExist = errors.New("failed to query series existence")
+	// ErrCollectSeriesExist is returned when the series existence cannot be collected.
+	ErrCollectSeriesExist = errors.New("failed to collect series existence")
 	// ErrQueryLabelValues is returned when label values cannot be queried.
 	ErrQueryLabelValues = errors.New("failed to query label values")
 	// ErrCollectLabelValues is returned when label values cannot be collected.
@@ -48,22 +53,50 @@ const (
 		SELECT COALESCE(EXTRACT(EPOCH FROM MIN(metric_time)) * 1000, -1)::bigint
 		FROM metric_values`
 
-	labelNamesQuery = `
-		SELECT DISTINCT key
-		FROM metric_labels, jsonb_object_keys(metric_labels) AS key
-		ORDER BY key`
+	// The label metadata queries take a predicate built by the SQL query
+	// builder, which references the metric_labels table under the alias l.
+	// It is parenthesized where it joins the other conditions, so that a
+	// predicate holding a top-level OR cannot widen them.
+	//
+	// The label names are sorted by the server, which merges the metric name
+	// and the external labels into them, so sorting them here would be work
+	// thrown away.
+	labelNamesQueryFormat = `
+		SELECT DISTINCT e.key
+		FROM metric_labels l
+		LEFT JOIN LATERAL jsonb_each_text(
+			CASE
+				WHEN jsonb_typeof(l.metric_labels) = 'object' THEN l.metric_labels
+				ELSE '{}'::jsonb
+			END
+		) AS e ON COALESCE(e.value, '') <> ''
+		WHERE (%s)`
 
-	metricNameValuesQuery = `
-		SELECT DISTINCT metric_name
-		FROM metric_labels
-		WHERE metric_name IS NOT NULL AND metric_name <> ''
+	metricNameValuesQueryFormat = `
+		SELECT DISTINCT l.metric_name
+		FROM metric_labels l
+		WHERE l.metric_name IS NOT NULL AND l.metric_name <> ''
+		  AND (%s)
 		ORDER BY metric_name`
 
-	labelValuesQuery = `
-		SELECT DISTINCT metric_labels->>$1 AS value
-		FROM metric_labels
-		WHERE metric_labels ? $1
+	// The containment test is what the GIN index serves, and the only reason
+	// this is not a sequential scan: the COALESCE that follows says the same
+	// thing about a key that is missing, but no index can answer it (50k
+	// series, a label nothing carries: 0.02ms with it, 7.5ms without).
+	labelValuesQueryFormat = `
+		SELECT DISTINCT l.metric_labels->>$1 AS value
+		FROM metric_labels l
+		WHERE l.metric_labels ? $1
+		  AND COALESCE(l.metric_labels->>$1, '') <> ''
+		  AND (%s)
 		ORDER BY value`
+
+	seriesExistQueryFormat = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM metric_labels l
+			WHERE (%s)
+		)`
 )
 
 type (
@@ -226,34 +259,73 @@ func (p *PostgreSQL) MinSampleTimestamp(ctx context.Context) (int64, bool, error
 	return milliseconds, true, nil
 }
 
-// LabelNames returns all distinct label names stored in the database, excluding
-// the metric name. It returns a superset (matchers and time range are not
-// applied), which the Thanos StoreAPI permits.
-func (p *PostgreSQL) LabelNames(ctx context.Context) ([]string, error) {
-	p.logQuery(ctx, labelNamesQuery)
+// LabelNames returns the distinct label names carried by the series matching
+// the given SQL predicate, and whether any series matched at all. The outer
+// join is what answers both at once: a matching series carrying no label of its
+// own still comes back, as a row with no key.
+//
+// The metric name is not one of the names: it lives in its own column, and the
+// StoreAPI server reports it. The time range of a query is not applied either:
+// the result may hold names whose series have no sample in the requested
+// window. The names come back unsorted, since the server sorts what it merges
+// them into.
+func (p *PostgreSQL) LabelNames(ctx context.Context, predicate string) ([]string, bool, error) {
+	query := fmt.Sprintf(labelNamesQueryFormat, predicate)
 
-	rows, err := p.db.Query(ctx, labelNamesQuery)
+	p.logQuery(ctx, query)
+
+	rows, err := p.db.Query(ctx, query)
 	if err != nil {
-		return nil, errors.Wrap(ErrQueryLabelNames, errors.CausedBy(err))
+		return nil, false, errors.Wrap(ErrQueryLabelNames, errors.CausedBy(err))
 	}
 
-	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	keys, err := pgx.CollectRows(rows, pgx.RowTo[*string])
 	if err != nil {
-		return nil, errors.Wrap(ErrCollectLabelNames, errors.CausedBy(err))
+		return nil, false, errors.Wrap(ErrCollectLabelNames, errors.CausedBy(err))
 	}
 
-	return names, nil
+	names := make([]string, 0, len(keys))
+
+	for _, key := range keys {
+		if key != nil {
+			names = append(names, *key)
+		}
+	}
+
+	return names, len(keys) > 0, nil
 }
 
-// LabelValues returns all distinct values for the given label name. It returns a
-// superset (matchers and time range are not applied).
-func (p *PostgreSQL) LabelValues(ctx context.Context, label string) ([]string, error) {
-	query := labelValuesQuery
+// SeriesExist reports whether at least one stored series matches the given SQL
+// predicate.
+func (p *PostgreSQL) SeriesExist(ctx context.Context, predicate string) (bool, error) {
+	query := fmt.Sprintf(seriesExistQueryFormat, predicate)
+
+	p.logQuery(ctx, query)
+
+	rows, err := p.db.Query(ctx, query)
+	if err != nil {
+		return false, errors.Wrap(ErrQuerySeriesExist, errors.CausedBy(err))
+	}
+
+	exist, err := pgx.CollectExactlyOneRow(rows, pgx.RowTo[bool])
+	if err != nil {
+		return false, errors.Wrap(ErrCollectSeriesExist, errors.CausedBy(err))
+	}
+
+	return exist, nil
+}
+
+// LabelValues returns the distinct values the given label takes on the series
+// matching the given SQL predicate. The time range of a query is not applied:
+// the result may hold values whose series have no sample in the requested
+// window.
+func (p *PostgreSQL) LabelValues(ctx context.Context, label, predicate string) ([]string, error) {
+	query := fmt.Sprintf(labelValuesQueryFormat, predicate)
 
 	args := []any{label}
 
 	if label == model.MetricNameLabel {
-		query = metricNameValuesQuery
+		query = fmt.Sprintf(metricNameValuesQueryFormat, predicate)
 		args = nil
 	}
 
