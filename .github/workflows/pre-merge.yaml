@@ -42,3 +42,45 @@ jobs:
           go-version-file: go.mod
       - name: Run tests
         run: go test -race ./...
+
+  # The unit tests above answer with a mock pool, so they say nothing about
+  # whether a query is valid PostgreSQL or means what it is meant to mean. The
+  # integration test asks PostgreSQL, and it asks every major this adapter
+  # supports: the matcher semantics it checks are the engine's, and a major
+  # that reads them differently has to fail here rather than in production.
+  integration-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["16", "17", "18"]
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+      - name: Run the queries against PostgreSQL ${{ matrix.postgres }}
+        shell: bash
+        env:
+          PPA_TEST_POSTGRES_DSN: postgres://postgres:test@127.0.0.1:5432/postgres?sslmode=disable
+        run: |
+          set -o pipefail
+          go test -count=1 -run AgainstDatabase -v ./... | tee test.log
+          # The test skips when it is not pointed at a database, so a DSN that
+          # stopped reaching this service would leave the job green without a
+          # query having run. Count what passed instead.
+          test "$(grep -c '^--- PASS: TestPostgreSQLAgainstDatabase' test.log)" -eq 1

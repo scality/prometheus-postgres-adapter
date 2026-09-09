@@ -27,7 +27,11 @@ PPA_TEST_POSTGRES_DSN='postgres://postgres:test@127.0.0.1:5432/postgres?sslmode=
   go test ./pkg/presentation/database/
 ```
 
-Run it whenever you touch a query.
+Run it whenever you touch a query. The `integration-test` job in
+`pre-merge.yaml` also runs it against **16, 17 and 18**, the majors this
+adapter supports, so a query that only works on one of them does not reach
+`main`. The test skips without a database, so that job counts the tests that
+passed rather than trusting a green exit.
 
 ## Architecture
 
