@@ -7,7 +7,7 @@ see the [README](README.md); for how it is built and why see
 
 ## Development environment
 
-You need Go 1.26+ and [golangci-lint](https://golangci-lint.run/) v2 on your
+You need Go 1.27+ and [golangci-lint](https://golangci-lint.run/) v2 on your
 `PATH` (the CI pins the exact version). A reachable PostgreSQL instance is
 required to run the adapter, but not to build it or run the unit tests.
 

@@ -165,7 +165,7 @@ docker build --build-arg VERSION=dev -t prometheus-postgres-adapter:local .
 
 ## Development
 
-Requires Go 1.26+ and [golangci-lint](https://golangci-lint.run/) v2.
+Requires Go 1.27+ and [golangci-lint](https://golangci-lint.run/) v2.
 
 ```bash
 go test ./...        # run the test suite
