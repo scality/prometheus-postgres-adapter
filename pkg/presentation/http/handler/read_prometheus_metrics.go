@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/prompb"
+	"github.com/scality/go-errors"
 )
 
 type ReadPrometheusMetrics struct {
@@ -65,6 +66,15 @@ func (h *ReadPrometheusMetrics) Handle() http.Handler {
 
 		resp, err := h.uc.Execute(ctx, &readRequest)
 		if err != nil {
+			// The query builder only ever fails on the matchers the request
+			// carries, so that is the request being wrong, not the adapter.
+			if errors.Is(err, usecase.ErrBuildSQLQuery) {
+				h.logger.WarnContext(ctx, "failed to build the query", slog.Any("error", err))
+				http.Error(w, err.Error(), http.StatusBadRequest)
+
+				return
+			}
+
 			h.logger.ErrorContext(ctx, "failed to execute use case", slog.Any("error", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 

@@ -32,6 +32,10 @@ For the architecture and the reasoning behind these choices, see
 
 ## Database setup
 
+Supported majors are **16, 17 and 18**: every pull request runs the read
+queries against all three, so an engine that reads a matcher differently fails
+the build rather than the deployment.
+
 Create the schema before starting the adapter:
 
 ```sql
@@ -161,7 +165,7 @@ docker build --build-arg VERSION=dev -t prometheus-postgres-adapter:local .
 
 ## Development
 
-Requires Go 1.26+ and [golangci-lint](https://golangci-lint.run/) v2.
+Requires Go 1.27+ and [golangci-lint](https://golangci-lint.run/) v2.
 
 ```bash
 go test ./...        # run the test suite

@@ -319,3 +319,127 @@ func TestPostgreSQL_CopyRows(t *testing.T) {
 		mockTx.AssertExpectations(t)
 	})
 }
+
+// captureQuery makes the pool fail every query, and returns a pointer to the
+// SQL statement it was asked to execute.
+func captureQuery(mockPool *MockPool) *string {
+	executed := new(string)
+
+	mockPool.On("Query", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { *executed = args.String(1) }).
+		Return(nil, errors.New("query failed"))
+
+	return executed
+}
+
+func TestPostgreSQL_LabelNames(t *testing.T) {
+	t.Run("selects the label names of the series matching the predicate", func(t *testing.T) {
+		mockPool := new(MockPool)
+		executed := captureQuery(mockPool)
+
+		pg := createPostgreSQLWithMock(mockPool)
+		_, _, err := pg.LabelNames(context.Background(), "l.metric_name = 'up'")
+
+		assert.Error(t, err)
+		assert.Contains(t, *executed, "FROM metric_labels l")
+		assert.Contains(t, *executed, "WHERE (l.metric_name = 'up')")
+		mockPool.AssertExpectations(t)
+	})
+
+	t.Run("reports whether a series matched at all", func(t *testing.T) {
+		mockPool := new(MockPool)
+		executed := captureQuery(mockPool)
+
+		pg := createPostgreSQLWithMock(mockPool)
+		_, _, err := pg.LabelNames(context.Background(), "TRUE")
+
+		assert.Error(t, err)
+		// A matching series with no label of its own still comes back, as a
+		// row with no key, which is how one query answers both questions.
+		assert.Contains(t, *executed, "LEFT JOIN LATERAL")
+		mockPool.AssertExpectations(t)
+	})
+
+	t.Run("a key with no value of its own is not a label name", func(t *testing.T) {
+		mockPool := new(MockPool)
+		executed := captureQuery(mockPool)
+
+		pg := createPostgreSQLWithMock(mockPool)
+		_, _, err := pg.LabelNames(context.Background(), "TRUE")
+
+		assert.Error(t, err)
+		// The same rule as LabelValues, so a name always resolves to a value.
+		assert.Contains(t, *executed, `COALESCE(e.value, '') <> ''`)
+		// jsonb_each_text refuses anything but an object, which would fail
+		// every metadata request over one malformed row.
+		assert.Contains(t, *executed, `jsonb_typeof(l.metric_labels) = 'object'`)
+		mockPool.AssertExpectations(t)
+	})
+
+	t.Run("reads the labels column alone", func(t *testing.T) {
+		mockPool := new(MockPool)
+		executed := captureQuery(mockPool)
+
+		pg := createPostgreSQLWithMock(mockPool)
+		_, _, err := pg.LabelNames(context.Background(), "TRUE")
+
+		assert.Error(t, err)
+		// The metric name lives in its own column and is reported by the
+		// StoreAPI server, not merged into the JSONB keys here.
+		assert.NotContains(t, *executed, "__name__")
+		// The server sorts the names it merges, so sorting them here too would
+		// be work thrown away.
+		assert.NotContains(t, *executed, "ORDER BY")
+		mockPool.AssertExpectations(t)
+	})
+}
+
+func TestPostgreSQL_SeriesExist(t *testing.T) {
+	t.Run("probes without scanning the whole table", func(t *testing.T) {
+		mockPool := new(MockPool)
+		executed := captureQuery(mockPool)
+
+		pg := createPostgreSQLWithMock(mockPool)
+		_, err := pg.SeriesExist(context.Background(), "l.metric_name = 'up'")
+
+		assert.Error(t, err)
+		assert.Contains(t, *executed, "SELECT EXISTS")
+		assert.Contains(t, *executed, "FROM metric_labels l")
+		assert.Contains(t, *executed, "WHERE (l.metric_name = 'up')")
+		assert.NotContains(t, *executed, "jsonb_object_keys")
+		assert.NotContains(t, *executed, "ORDER BY")
+		mockPool.AssertExpectations(t)
+	})
+}
+
+func TestPostgreSQL_LabelValues(t *testing.T) {
+	t.Run("selects the values of the series matching the predicate", func(t *testing.T) {
+		mockPool := new(MockPool)
+		executed := captureQuery(mockPool)
+
+		pg := createPostgreSQLWithMock(mockPool)
+		_, err := pg.LabelValues(context.Background(), "instance", "l.metric_name = 'up'")
+
+		assert.Error(t, err)
+		assert.Contains(t, *executed, "FROM metric_labels l")
+		assert.Contains(t, *executed, "l.metric_labels ? $1")
+		// A key holding a JSON null reads as SQL NULL, which the string row
+		// scanner cannot take, and an empty value is how a label is absent.
+		assert.Contains(t, *executed, `COALESCE(l.metric_labels->>$1, '') <> ''`)
+		assert.Contains(t, *executed, "AND (l.metric_name = 'up')")
+		mockPool.AssertExpectations(t)
+	})
+
+	t.Run("the metric name reads the metric_name column", func(t *testing.T) {
+		mockPool := new(MockPool)
+		executed := captureQuery(mockPool)
+
+		pg := createPostgreSQLWithMock(mockPool)
+		_, err := pg.LabelValues(context.Background(), "__name__", "l.metric_labels @> '{\"job\":\"a\"}'")
+
+		assert.Error(t, err)
+		assert.Contains(t, *executed, "SELECT DISTINCT l.metric_name")
+		assert.Contains(t, *executed, "AND (l.metric_labels @> '{\"job\":\"a\"}')")
+		mockPool.AssertExpectations(t)
+	})
+}
