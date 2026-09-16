@@ -7,12 +7,31 @@ see the [README](README.md); for how it is built and why see
 
 ## Development environment
 
-You need Go 1.26+ and [golangci-lint](https://golangci-lint.run/) v2 on your
+You need Go 1.27+ and [golangci-lint](https://golangci-lint.run/) v2 on your
 `PATH` (the CI pins the exact version). A reachable PostgreSQL instance is
 required to run the adapter, but not to build it or run the unit tests.
 
 The everyday commands are listed in the README's
 [Development](README.md#development) section.
+
+The unit tests run the database client against a mock pool, so they only check
+the SQL text. `pkg/presentation/database/postgresql_integration_test.go`
+executes it instead, and is the only place where a query is checked to be valid
+PostgreSQL and to mean what it is meant to mean -- the JSONB label lookups, the
+byte-wise ordering, the PromQL matcher semantics. It skips unless it is pointed
+at a **throwaway** database, whose tables it drops and recreates:
+
+```bash
+docker run --rm -d -e POSTGRES_PASSWORD=test -p 5432:5432 postgres:16
+PPA_TEST_POSTGRES_DSN='postgres://postgres:test@127.0.0.1:5432/postgres?sslmode=disable' \
+  go test ./pkg/presentation/database/
+```
+
+Run it whenever you touch a query. The `integration-test` job in
+`pre-merge.yaml` also runs it against **16, 17 and 18**, the majors this
+adapter supports, so a query that only works on one of them does not reach
+`main`. The test skips without a database, so that job counts the tests that
+passed rather than trusting a green exit.
 
 ## Architecture
 
