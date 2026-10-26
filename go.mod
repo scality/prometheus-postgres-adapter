@@ -10,7 +10,7 @@ require (
 	github.com/prometheus/common v0.67.5
 	github.com/prometheus/prometheus v0.312.0
 	github.com/scality/go-errors v1.3.0
-	github.com/sethvargo/go-envconfig v1.3.0
+	github.com/sethvargo/go-envconfig v1.4.3
 	github.com/stretchr/testify v1.11.1
 	github.com/thanos-io/thanos v0.41.0
 	google.golang.org/grpc v1.81.1
