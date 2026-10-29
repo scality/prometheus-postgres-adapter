@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/lib/pq v1.12.3
 	github.com/prometheus/common v0.71.0
 	github.com/prometheus/prometheus v0.315.0
