@@ -12,12 +12,12 @@ require (
 	github.com/scality/go-errors v1.3.0
 	github.com/sethvargo/go-envconfig v1.4.3
 	github.com/stretchr/testify v1.12.1
-	github.com/thanos-io/thanos v0.41.0
+	github.com/thanos-io/thanos v0.42.5
 	google.golang.org/grpc v1.83.2
 )
 
 require (
-	github.com/VictoriaMetrics/easyproto v0.1.4 // indirect
+	github.com/VictoriaMetrics/easyproto v1.1.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

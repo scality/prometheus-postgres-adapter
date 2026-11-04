@@ -15,8 +15,8 @@ github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0 h1:Nljr4q1GRA/
 github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0/go.mod h1:Y33QHnf0FfdVewFFISOGe20mkZbxX4H839o955/PoeI=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
-github.com/VictoriaMetrics/easyproto v0.1.4 h1:r8cNvo8o6sR4QShBXQd1bKw/VVLSQma/V2KhTBPf+Sc=
-github.com/VictoriaMetrics/easyproto v0.1.4/go.mod h1:QlGlzaJnDfFd8Lk6Ci/fuLxfTo3/GThPs2KH23mv710=
+github.com/VictoriaMetrics/easyproto v1.1.3 h1:gRSA3ZQs7n4+5I+SniDWD59jde1jVq4JmgQ9HUUyvk4=
+github.com/VictoriaMetrics/easyproto v1.1.3/go.mod h1:QlGlzaJnDfFd8Lk6Ci/fuLxfTo3/GThPs2KH23mv710=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b h1:mimo19zliBX/vSQ6PWWSL9lK8qwHozUj03+zLoEB8O0=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b/go.mod h1:fvzegU4vN3H1qMT+8wDmzjAcDONcgo2/SZ/TyfdUOFs=
 github.com/aws/aws-sdk-go-v2 v1.46.0 h1:1kt7m/EKcEHt5mlyyxx9cSlMddRPIKbjb6DIQsu4HPk=
@@ -208,10 +208,10 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
-github.com/thanos-io/promql-engine v0.0.0-20260119085929-dd5223783674 h1:C5yBEuIZCaeLh90lcUGfnGepmwDfGGYLu6+w7RxR7og=
-github.com/thanos-io/promql-engine v0.0.0-20260119085929-dd5223783674/go.mod h1:uzn40oZHPXvfdP498h+MiRL2fN7RF519gNaV3LyhChc=
-github.com/thanos-io/thanos v0.41.0 h1:GDPGynjHBa8ORAX7DfluBFjHbMeY1BzjLTGdviFvo7Q=
-github.com/thanos-io/thanos v0.41.0/go.mod h1:ppdHafpAT8WAbcwgLiNU4jNtNe17Ct3xX9dXq+h6g2k=
+github.com/thanos-io/promql-engine v0.0.0-20260513095632-c5f6038078e3 h1:vO9SBpSzzp7jlDaWqJ34Y7zumD5OrPTcCZcWgDgzC6M=
+github.com/thanos-io/promql-engine v0.0.0-20260513095632-c5f6038078e3/go.mod h1:uzn40oZHPXvfdP498h+MiRL2fN7RF519gNaV3LyhChc=
+github.com/thanos-io/thanos v0.42.5 h1:92xtD5YT0cgeCFJmZdWsZLRkVh4cDWfSDb9AAiY4BN4=
+github.com/thanos-io/thanos v0.42.5/go.mod h1:+aFHjx1arkjRljkAluyz8R0RbMPgE5ebs8QK7HoetUM=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
