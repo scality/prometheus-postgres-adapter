@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build \
     -ldflags "-X prometheus-postgres-adapter/cmd/config.ApplicationVersion=${VERSION}" \
     -o prometheus-postgres-adapter ./cmd
 
-FROM gcr.io/distroless/static:nonroot@sha256:963fa6c544fe5ce420f1f54fb88b6fb01479f054c8056d0f74cc2c6000df5240
+FROM gcr.io/distroless/static:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
 
 LABEL org.opencontainers.image.source=https://github.com/scality/prometheus-postgres-adapter
 
