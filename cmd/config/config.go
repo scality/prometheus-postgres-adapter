@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/scality/go-errors"
-	"github.com/sethvargo/go-envconfig"
+	"github.com/sethvargo/go-envconfig/v2"
 )
 
 // ErrProcessEnv is returned when environment variables cannot be processed.
