@@ -13,7 +13,7 @@ require (
 	github.com/sethvargo/go-envconfig/v2 v2.0.0
 	github.com/stretchr/testify v1.12.1
 	github.com/thanos-io/thanos v0.42.5
-	google.golang.org/grpc v1.83.2
+	google.golang.org/grpc v1.85.0
 )
 
 require (
