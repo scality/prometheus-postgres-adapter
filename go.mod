@@ -7,7 +7,7 @@ require (
 	github.com/golang/snappy v1.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/lib/pq v1.12.3
-	github.com/prometheus/common v0.72.1
+	github.com/prometheus/common v0.73.1
 	github.com/prometheus/prometheus v0.315.1
 	github.com/scality/go-errors v1.3.0
 	github.com/sethvargo/go-envconfig/v2 v2.0.0
@@ -35,6 +35,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pandatix/go-abnf v0.5.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
